@@ -1,6 +1,6 @@
 # Hockey Manager: an open-source hockey management simulation
 
-*[Version française (Québec)](README.fr.md)*
+**English** · [**Français (Québec)**](#fran%C3%A7ais-qu%C3%A9bec) · [README complet en français](README.fr.md)
 
 **A single-player ice hockey general manager game for your desktop.** You run an NHL-style club's hockey operations (roster,
 lines, contracts and the salary cap, trades, the draft, scouting, staff, the dressing room, the owner, the money and the
@@ -132,3 +132,36 @@ player, players' association or commercial game.
 general manager game, text-based hockey simulation, sports management game, offline single-player sports sim, open-source
 hockey game, moddable hockey sim, hockey database editor, custom hockey league, Python hockey simulation, salary cap
 simulator.</sub>
+
+---
+
+## Français (Québec)
+
+**Hockey Manager** est un jeu solo libre de directeur général de hockey sur glace, pour ordinateur. Vous dirigez les
+opérations hockey d'un club de style LNH (alignement, trios, contrats et plafond salarial, échanges, repêchage, dépistage,
+personnel, vestiaire, propriétaire, finances et presse) pendant que tout un monde du hockey (ligues-écoles, juniors,
+universitaire, européennes) évolue autour de vous. Python et SQLite, aucun compte, aucun Internet, aucune publicité.
+Gratuit, sous licence MIT. L'interface du jeu existe en français québécois : **Fichier > Français (Québec)**.
+
+**Jouer en deux minutes.** Il vous faut Python 3.9 ou plus récent, rien d'autre.
+
+```bash
+git clone https://github.com/jeremylegere-wq/hockey-manager.git
+cd hockey-manager
+./play.sh                 # Windows : double-cliquez sur PLAY_WINDOWS.bat
+```
+
+**Une ligue à vous.** Le jeu est livré avec une ligue entièrement fictive. Pour vos propres équipes (une vraie ville et
+votre propre nom d'équipe, comme les Royals de Toronto), inscrivez 32 clubs dans un chiffrier et le jeu construit la
+ligue : [créer vos propres équipes](docs/fr/MAKE_YOUR_OWN_TEAMS.md). Importez vos propres données d'autres jeux de hockey,
+pour vous seulement : [créer votre ligue](docs/fr/BUILD_YOUR_OWN.md).
+
+**Documentation en français :** [README complet](README.fr.md) · [manuel du joueur](docs/fr/MANUAL.md) ·
+[créer vos propres équipes](docs/fr/MAKE_YOUR_OWN_TEAMS.md) · [créer votre ligue](docs/fr/BUILD_YOUR_OWN.md) ·
+[contribuer et signaler un bogue](CONTRIBUTING.fr.md). Les pages techniques (formules des IA, format des paquets, feuille de
+route) sont en anglais.
+
+**Signaler un bogue :** jeremy.legere@gmail.com, un ticket GitHub, ou **Aide > Signaler un bogue** dans le jeu.
+
+<sub>Mots-clés : jeu de gestion de hockey, simulateur de directeur général de hockey, mode franchise de style LNH, jeu de
+gestion sportive hors ligne, jeu de hockey libre, simulation de hockey en Python, éditeur de base de données de hockey.</sub>

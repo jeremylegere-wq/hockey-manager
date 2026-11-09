@@ -1,6 +1,6 @@
 # Hockey Manager : une simulation de gestion de hockey libre
 
-*[English version](README.md)*
+[**English**](README.md) · **Français (Québec)**
 
 **Un jeu solo de directeur général de hockey sur glace pour ordinateur.** Vous dirigez les opérations hockey d'un club de
 style LNH (alignement, trios, contrats et plafond salarial, échanges, repêchage, dépistage, personnel, vestiaire,
