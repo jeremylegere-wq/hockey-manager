@@ -110,7 +110,7 @@ class NamesTests(unittest.TestCase):
         hits = []
         for f in list((ROOT / "hs").rglob("*.py")) + list((ROOT / "hs").rglob("*.js")) + list((ROOT / "hs").rglob("*.html")) \
                 + list((ROOT / "hs").rglob("*.css")) + list((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md"]:
-            if "vendor" in f.parts:
+            if "vendor" in f.parts or f.name == "MAKE_YOUR_OWN_TEAMS.md":    # the one guide that names the editor, by choice
                 continue
             for i, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
                 if bad.search(line):

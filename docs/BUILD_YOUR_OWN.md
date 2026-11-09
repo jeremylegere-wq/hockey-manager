@@ -1,5 +1,7 @@
 # Build your own league, roster or world
 
+*[Version française (Québec)](fr/BUILD_YOUR_OWN.md)*
+
 Everything the game plays comes from a **world**: a SQLite file built from a **data pack**, a folder of CSV files you can edit
 in a spreadsheet. The game ships a fictional world; this page shows how to make another, change a roster, or bring in data
 you already have. Every command here was run against this version.
@@ -10,6 +12,7 @@ All commands run from the game folder.
 
 | You want | Do |
 |---|---|
+| Your own 32 club names (a city and your own nickname), no coding | [MAKE_YOUR_OWN_TEAMS.md](MAKE_YOUR_OWN_TEAMS.md) |
 | A different fictional league | `python3 -m hs.tools.make_mock_world --out worlds/Another.db --seed 7` |
 | To change a few players or clubs | turn on commissioner mode and use File > Editor (section 4) |
 | To edit lots of players in Excel | export CSV, edit, import (section 4) |

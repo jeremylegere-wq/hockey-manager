@@ -1,5 +1,7 @@
 # Contributing and reporting bugs
 
+*[Version française (Québec)](CONTRIBUTING.fr.md)*
+
 ## Report a bug
 
 Email **jeremy.legere@gmail.com**, or open an issue on GitHub (the templates ask for the right things). In the game,

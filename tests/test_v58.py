@@ -45,6 +45,28 @@ class MockWorldTests(unittest.TestCase):
             s.new_game("Test", "PHM", 1)
             self.assertTrue((Path(tmp) / "saves" / "Test.db").exists())
 
+    def test_own_clubs_csv_builds_a_world_and_a_career(self):
+        from hs.leaguedata import fictional as FIC
+        clubs = FIC.load_clubs(ROOT / "docs" / "examples" / "my_clubs_template.csv")
+        self.assertEqual(len(clubs), 32)
+        with tempfile.TemporaryDirectory() as tmp:
+            w = make_mock_world.build(Path(tmp) / "My.db", 2, clubs=clubs, name="My League")
+            s = Saves(Path(tmp) / "saves", w)
+            s.new_game("Mine", "TOR", 1)
+            self.assertTrue((Path(tmp) / "saves" / "Mine.db").exists())
+
+    def test_own_clubs_csv_reports_every_problem(self):
+        from hs.leaguedata import fictional as FIC
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "c.csv"
+            f.write_text("city,nickname,abbr,conference,division\nA,B,AB,East,North\nA,B,AB,East,North\n", encoding="utf-8")
+            with self.assertRaises(ValueError) as cm:
+                FIC.load_clubs(f)
+            msg = str(cm.exception)
+            self.assertIn("exactly 32", msg)
+            self.assertIn("appears 2 times", msg)
+            self.assertIn("2 conferences", msg)
+
     def test_shipped_environment_loads(self):
         env = json.load(open(ROOT / "data" / "env_default.json"))
         self.assertIn("game", env)

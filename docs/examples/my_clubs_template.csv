@@ -1,0 +1,33 @@
+city,nickname,abbr,conference,division
+Boston,Brigade,BOS,Eastern,Atlantic
+Buffalo,Gales,BUF,Eastern,Atlantic
+Detroit,Foundry,DET,Eastern,Atlantic
+Florida,Surge,FLA,Eastern,Atlantic
+Montreal,Reds,MTL,Eastern,Atlantic
+Ottawa,Lancers,OTT,Eastern,Atlantic
+Tampa Bay,Pelicans,TBP,Eastern,Atlantic
+Toronto,Royals,TOR,Eastern,Atlantic
+Carolina,Cardinals,CAR,Eastern,Metropolitan
+Columbus,Pioneers,CBJ,Eastern,Metropolitan
+New Jersey,Garrison,NJG,Eastern,Metropolitan
+New York,Express,NYX,Eastern,Metropolitan
+Long Island,Gulls,LIG,Eastern,Metropolitan
+Philadelphia,Forge,PHF,Eastern,Metropolitan
+Pittsburgh,Ironmen,PIT,Eastern,Metropolitan
+Washington,Sentinels,WSH,Eastern,Metropolitan
+Chicago,Stockyards,CHI,Western,Central
+Colorado,Summit,COL,Western,Central
+Dallas,Wranglers,DAL,Western,Central
+Minnesota,Loons,MIN,Western,Central
+Nashville,Outlaws,NSH,Western,Central
+St. Louis,Riverboats,STL,Western,Central
+Utah,Mesa,UTA,Western,Central
+Winnipeg,Frontier,WPG,Western,Central
+Anaheim,Comets,ANA,Western,Pacific
+Calgary,Wildfire,CGY,Western,Pacific
+Edmonton,Roughnecks,EDM,Western,Pacific
+Los Angeles,Monarchs,LAM,Western,Pacific
+San Jose,Tides,SJT,Western,Pacific
+Seattle,Evergreens,SEA,Western,Pacific
+Vancouver,Orcas,VAN,Western,Pacific
+Vegas,Aces,VGS,Western,Pacific

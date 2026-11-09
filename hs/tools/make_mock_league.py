@@ -58,13 +58,13 @@ def _salary(ov, age, rng):
     return int(max(775_000, min(12_500_000, hit)) // 25_000 * 25_000), "standard"
 
 
-def generate(out: Path, seed=1):
+def generate(out: Path, seed=1, clubs=None):
     rng = random.Random(f"mock-league-{seed}")
     out = Path(out)
     _w(out / "leagues.csv", ["league_id", "name", "abbr", "country", "level", "games_per_team"],
        [[1, "Premier Hockey League", "PHL", "", 1, 82]])
     teams = []
-    for i, (city, nick, abbr, conf, div) in enumerate(FIC.NHL_CLUBS):
+    for i, (city, nick, abbr, conf, div) in enumerate(clubs or FIC.NHL_CLUBS):
         teams.append([i + 1, 1, city, nick, abbr, conf, div, _color(i), "#ffffff", ""])
     _w(out / "teams.csv", ["team_id", "league_id", "name", "nickname", "abbr", "conference", "division",
                            "primary_color", "secondary_color", "logo"], teams)
@@ -112,8 +112,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--clubs", help="a CSV of your own 32 clubs (city, nickname, abbr, conference, division)")
     a = ap.parse_args(argv)
-    n, p = generate(Path(a.out), a.seed)
+    try:
+        clubs = FIC.load_clubs(a.clubs) if a.clubs else None
+    except (ValueError, OSError) as e:
+        raise SystemExit(f"Cannot use the clubs file: {e}")
+    n, p = generate(Path(a.out), a.seed, clubs)
     print(f"wrote {n} clubs and {p} players to {a.out}")
 
 

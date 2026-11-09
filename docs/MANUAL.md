@@ -1,5 +1,7 @@
 # Hockey Manager: the player's manual
 
+*[Version française (Québec)](fr/MANUAL.md)*
+
 You are the general manager of a hockey club. You decide who plays, who is signed, traded and drafted, what the club
 spends, and how you answer to an owner who can fire you. The league plays on around you whether you are watching or not.
 

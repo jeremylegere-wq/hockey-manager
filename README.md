@@ -1,5 +1,7 @@
 # Hockey Manager: an open-source hockey management simulation
 
+*[Version française (Québec)](README.fr.md)*
+
 **A single-player ice hockey general manager game for your desktop.** You run an NHL-style club's hockey operations (roster,
 lines, contracts and the salary cap, trades, the draft, scouting, staff, the dressing room, the owner, the money and the
 press) while a whole hockey world plays on around you: AHL and ECHL farm clubs, junior, college and European leagues, all
@@ -79,13 +81,17 @@ You do not have to play the fictional world.
   stays on your computer, and is never published.
 * **Share a fictional league:** a pack of invented clubs and players can be published under any licence you like.
 
-Step by step, with every command tested: **[docs/BUILD_YOUR_OWN.md](docs/BUILD_YOUR_OWN.md)**.
+**Easiest:** list your own 32 clubs in a spreadsheet (a real city and your own nickname, like the Toronto Royals) and the
+game builds the league: **[docs/MAKE_YOUR_OWN_TEAMS.md](docs/MAKE_YOUR_OWN_TEAMS.md)**.
+
+Every pack file and command, tested: **[docs/BUILD_YOUR_OWN.md](docs/BUILD_YOUR_OWN.md)**.
 
 ## Documentation
 
 | | |
 |---|---|
 | [docs/MANUAL.md](docs/MANUAL.md) | Player's manual: start a career, a season, every area of the game, tips, FAQ |
+| [docs/MAKE_YOUR_OWN_TEAMS.md](docs/MAKE_YOUR_OWN_TEAMS.md) | Name your own 32 clubs in a spreadsheet, build the league, bring in rosters from other games |
 | [docs/BUILD_YOUR_OWN.md](docs/BUILD_YOUR_OWN.md) | Make your own league or roster, import data, share packs |
 | [docs/DATAPACK_SPEC.md](docs/DATAPACK_SPEC.md) | The pack file format |
 | [docs/FINANCE.md](docs/FINANCE.md), [BOARD.md](docs/BOARD.md), [TACTICS.md](docs/TACTICS.md), [TRADES.md](docs/TRADES.md), [DRAFT.md](docs/DRAFT.md) | System guides |

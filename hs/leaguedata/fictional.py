@@ -9,6 +9,10 @@ built from small pools so that the world has no real trademarks in it.
 """
 from __future__ import annotations
 
+import csv
+from collections import Counter
+from pathlib import Path
+
 CONFERENCES = {"Eastern": ["Lakes", "Coast"], "Western": ["Plains", "Mountain"]}
 
 NHL_CLUBS = [
@@ -103,3 +107,48 @@ def club_names(kind, n, rng, used=None):
              "DEL": (_DE, "{} Eishockey"), "ELH": (_CZ, "HC {}")}
     pool, fmt = pools[kind]
     return [fmt.format(p) for p in _pick_unique(pool, n, rng, set())]
+
+
+def load_clubs(path):
+    """Read your own 32 clubs from a CSV with the columns city, nickname, abbr, conference, division (abbr may be
+    blank: it is made from the city and nickname). Returns the list make_mock_league uses in place of NHL_CLUBS.
+    Raises ValueError listing every problem: the league needs 32 distinct clubs in 2 conferences of 2 divisions,
+    8 clubs in each division (the schedule and playoff format are built for that shape)."""
+    rows, problems = [], []
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        rd = csv.DictReader(fh)
+        cols = [(c or "").strip().lower() for c in (rd.fieldnames or [])]
+        for need in ("city", "nickname", "conference", "division"):
+            if need not in cols:
+                raise ValueError(f"{path}: missing column '{need}' (columns are city, nickname, abbr, conference, division)")
+        for n, r in enumerate(rd, start=2):
+            r = {(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+            if not any(r.values()):
+                continue
+            for need in ("city", "nickname", "conference", "division"):
+                if not r.get(need):
+                    problems.append(f"row {n}: '{need}' is empty")
+            rows.append(r)
+    used, out = set(), []
+    for n, r in enumerate(rows, start=2):
+        abbr = r.get("abbr", "").upper()
+        if not abbr:
+            letters = "".join(w[0] for w in (r["city"] + " " + r["nickname"]).split())
+            abbr = (r["city"].replace(" ", "")[:2] + r["nickname"][:1] + letters).upper()[:3]
+        base, k = abbr, 2
+        while abbr in used:
+            abbr, k = base[:2] + str(k), k + 1
+        used.add(abbr)
+        out.append((r["city"], r["nickname"], abbr, r["conference"], r["division"]))
+    if len(out) != 32:
+        problems.append(f"the league needs exactly 32 clubs, the file has {len(out)}")
+    names = Counter(f"{c} {n}".lower() for c, n, *_ in out)
+    problems += [f"'{k}' appears {v} times" for k, v in names.items() if v > 1]
+    divs = Counter((c, d) for *_, c, d in out)
+    confs = {c for c, _ in divs}
+    if len(confs) != 2 or len(divs) != 4 or any(v != 8 for v in divs.values()):
+        problems.append("use 2 conferences, each with 2 divisions of 8 clubs (found "
+                        + ", ".join(f"{c}/{d}: {v}" for (c, d), v in sorted(divs.items())) + ")")
+    if problems:
+        raise ValueError("clubs file problems:\n  " + "\n  ".join(problems))
+    return out
