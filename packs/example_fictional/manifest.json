@@ -1,0 +1,11 @@
+{
+  "format_version": "0.1",
+  "name": "example-fictional",
+  "version": "1",
+  "source": "generated",
+  "redistributable": true,
+  "contains_real_names": false,
+  "season_start_year": 2026,
+  "license": "CC0-1.0",
+  "description": "Fictional 8-team league with generated players, for testing."
+}

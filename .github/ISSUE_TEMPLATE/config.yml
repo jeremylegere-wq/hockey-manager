@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Email the author
+    url: mailto:jeremy.legere@gmail.com
+    about: Bug reports and questions by email

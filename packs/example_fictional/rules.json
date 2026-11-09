@@ -1,0 +1,34 @@
+{
+ "name": "Demo Hockey League rules",
+ "season": {
+  "start": "2026-10-01",
+  "end": "2027-02-28",
+  "breaks": []
+ },
+ "schedule": {
+  "games_per_team": 56,
+  "same_division": {
+   "games": 8,
+   "reduced_games": 8,
+   "reduced_opponents_per_team": 0
+  },
+  "same_conference": {
+   "games": 4
+  },
+  "other_conference": {
+   "games": 10
+  }
+ },
+ "playoffs": {
+  "format": "conference_top_n",
+  "teams_per_conference": 2,
+  "series_length": 5,
+  "home_pattern": [
+   1,
+   1,
+   0,
+   0,
+   1
+  ]
+ }
+}

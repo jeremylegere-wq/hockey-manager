@@ -1,0 +1,19 @@
+# generated worlds and careers
+save/
+saves/
+worlds/
+.runtime/
+.runtime-declined
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# never commit packs derived from third-party data
+packs/*
+!packs/README.md
+!packs/example_fictional/
+
+__pycache__/
+*.pyc
+.DS_Store

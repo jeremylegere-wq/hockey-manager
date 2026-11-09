@@ -1,0 +1,9 @@
+team_id,league_id,name,nickname,abbr,conference,division,primary_color,secondary_color,logo
+1,1,Northern,Lights,NLT,East,North,#1f4e79,#ffffff,
+2,1,Harbour,Kings,HBK,East,North,#7b2d26,#ffffff,
+3,1,Prairie,Wolves,PRW,East,South,#2e6b3a,#ffffff,
+4,1,Granite,Peaks,GRP,East,South,#555555,#ffffff,
+5,1,Lakeshore,Storm,LKS,West,Prairie,#6a3d9a,#ffffff,
+6,1,Iron,Ridge,IRR,West,Prairie,#b36b00,#ffffff,
+7,1,Coastal,Gulls,CGL,West,Coast,#0b7285,#ffffff,
+8,1,Maple,Valley,MPV,West,Coast,#8a1c3c,#ffffff,

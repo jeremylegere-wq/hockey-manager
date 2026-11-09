@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hockey Manager</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="features.css">
+<link rel="stylesheet" href="v27.css">
+<link rel="stylesheet" href="classic.css">
+<link rel="stylesheet" href="v39.css">
+</head>
+<body class="classic">
+<header class="menubar" id="menubar">
+  <div class="mb-menus" id="mb-menus"></div>
+  <span class="spacer"></span>
+  <span class="navbtns"><button id="nav-back" class="navbtn" title="Back (Alt+Left)" aria-label="Back">&#9664;</button><button id="nav-fwd" class="navbtn" title="Forward (Alt+Right)" aria-label="Forward">&#9654;</button><button id="nav-home" class="navbtn" title="Office (Home)" aria-label="Office">&#8962;</button></span>
+  <span class="mb-search"><input id="mb-search" placeholder="Find a player or club" aria-label="Search" autocomplete="off"><div id="mb-results" class="mb-results" hidden></div></span>
+</header>
+<div class="screenhead" id="screenhead">
+  <span id="sh-crest" class="sh-crest"></span>
+  <div class="sh-main"><div class="sh-team" id="tb-team">-</div><div class="sh-sub"><span id="sh-screen">Office</span><span class="sep">|</span><span id="tb-season"></span><span class="sep">|</span><span id="tb-save" title="This career's save slot (it saves as you play)"></span></div></div>
+  <span class="spacer"></span>
+  <div class="sh-status">
+    <span id="tb-board" class="pill"></span>
+    <a href="#inbox" id="tb-inbox" class="pill link">Inbox</a>
+    <button id="tb-menu" class="pill link" title="Save as, load, new game">Saves &#9662;</button>
+  </div>
+  <div class="sh-date"><b id="sh-date">-</b><span id="sh-record"></span></div>
+</div>
+<nav class="primary" id="nav">
+  <a href="#dashboard" data-view="dashboard">Office</a>
+  <a href="#inbox" data-view="inbox">Inbox</a>
+  <a href="#roster" data-view="roster">Roster</a>
+  <a href="#lines" data-view="lines">Lineup</a>
+  <a href="#contracts" data-view="contracts">Contracts</a>
+  <a href="#trade" data-view="trade">Trade</a>
+  <a href="#offseason" data-view="offseason">Transactions</a>
+  <a href="#prospects" data-view="prospects">Prospects</a>
+  <a href="#scouting" data-view="scouting">Scouting</a>
+  <a href="#staff" data-view="staff">Staff</a>
+  <a href="#calendar" data-view="calendar">Calendar</a>
+  <a href="#standings" data-view="standings">Standings</a>
+  <a href="#stats" data-view="stats">Statistics</a>
+  <a href="#news" data-view="news">News</a>
+</nav>
+<main id="view" aria-live="polite"><div class="panel"><div class="body">Loading...</div></div></main>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="modal" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true"><button class="modal-x" aria-label="Close">&times;</button><div id="modal-body"></div></div></div>
+<div id="simcentre" class="simcentre" hidden></div>
+<div id="title" class="titlescreen" hidden></div>
+<footer class="statusbar actionbar">
+  <span id="sb-date">-</span>
+  <span id="sb-phase" class="muted"></span>
+  <span id="sb-record" class="muted"></span>
+  <span class="spacer"></span>
+  <input id="cmd" class="cmdbox" placeholder="Console: any command (help lists them)" aria-label="Command">
+  <span id="sb-controls"></span>
+</footer>
+<script src="replay.js"></script>
+<script src="rink.js"></script>
+<script src="app.js"></script>
+<script src="features.js"></script>
+<script src="v27.js"></script>
+<script src="classic.js"></script>
+<script src="v29.js"></script>
+<script src="v31.js"></script>
+<script src="v32.js"></script>
+<script src="v33.js"></script>
+<script src="v34.js"></script>
+<script src="v35.js"></script>
+<script src="v36.js"></script>
+<script src="v37.js"></script>
+<script src="v38.js"></script>
+<script src="v39.js"></script>
+<script src="v40.js"></script>
+<script src="v41.js"></script>
+<script src="v44.js"></script>
+<script src="v45.js"></script>
+<script src="v46.js"></script>
+<script src="v47.js"></script>
+<script src="v48.js"></script>
+<script src="v49.js"></script>
+<script src="v50.js"></script>
+<script src="v51.js"></script>
+<script src="v54.js"></script>
+<script src="v55.js"></script>
+<script src="v56.js"></script>
+<script src="v57.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+ "season": 2025,
+ "games": 1315.6,
+ "ev": {
+  "att60": 56.211991143978494,
+  "blocked_frac": 0.27765839628411326,
+  "missed_frac": 0.35484616528793234,
+  "sh_pct": 0.09508067634049708,
+  "sh_pct_regular": 0.0880171156273413,
+  "goals60": 2.490732820810102,
+  "xg_per_unblocked": 0.06144509662581952,
+  "rebound_att_per_sog": 0.12258405485068936,
+  "rebound_frac_of_attempts": 0.05712679967601699,
+  "rebound_sh_pct": 0.21166417363190862,
+  "d_attempt_share": 0.3481027302174919,
+  "d_goal_factor": 0.4748599276093945,
+  "minutes_per_game_all_players": 490.823896593737
+ },
+ "pp": {
+  "att60": 99.24907706929666,
+  "blocked_frac": 0.23286003641794709,
+  "missed_frac": 0.3321731941166273,
+  "sh_pct": 0.14424632096004472,
+  "sh_pct_regular": 0.13119299074622023,
+  "goals60": 7.334485880358851,
+  "xg_per_unblocked": 0.09680828366070596,
+  "rebound_att_per_sog": 0.15159441704438809,
+  "rebound_frac_of_attempts": 0.0776643411011314,
+  "rebound_sh_pct": 0.2992666527222738,
+  "d_attempt_share": 0.2121599509102066,
+  "d_goal_factor": 0.5121160641535335,
+  "minutes_per_game_all_players": 44.91887695945606
+ },
+ "sh": {
+  "att60": 13.910144611775607,
+  "blocked_frac": 0.1093065693430657,
+  "missed_frac": 0.20743700061462814,
+  "sh_pct": 0.08944035155745121,
+  "sh_pct_regular": 0.08577097755112105,
+  "goals60": 0.8782682546851022,
+  "xg_per_unblocked": 0.07361298914156936,
+  "rebound_att_per_sog": 0.058937572702597904,
+  "rebound_frac_of_attempts": 0.041605839416058395,
+  "rebound_sh_pct": 0.1739647036681791,
+  "d_attempt_share": 0.24269005847953215,
+  "d_goal_factor": 0.4049028483877707,
+  "minutes_per_game_all_players": 35.933518030104736
+ },
+ "game": {
+  "goals_per_team_game": 2.878871102478838,
+  "sog_per_team_game": 27.561152785711595,
+  "sv_pct": 0.895546056260342,
+  "penalties_per_game_both_teams": 6.900169470178981,
+  "pp_minutes_per_game": 8.983775391891212,
+  "ev_minutes_per_game": 49.0823896593737,
+  "pp_goals_per_game": 1.0981895627356897,
+  "primary_assists_per_goal": 0.9365413161801088,
+  "secondary_assists_per_goal": 0.752102919346858,
+  "attempts_per_team_game": 58.10340985232669,
+  "other_situation_goals_share": 0.12360676268002505
+ },
+ "team_spread": {
+  "cf_pct_sd": 0.03175,
+  "xgf_pct_sd": 0.03451,
+  "sv_pct_sd": 0.00914,
+  "goal_diff_per_game_sd": 0.59748
+ }
+}
