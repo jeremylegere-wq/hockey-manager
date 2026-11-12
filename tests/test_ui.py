@@ -56,7 +56,7 @@ class UITest(unittest.TestCase):
         self.game.command("sim day")
         gid = self.game.cli.conn.execute("SELECT game_id FROM games WHERE played=1 LIMIT 1").fetchone()[0]
         params = {"player": f"?id={self.pid}", "roster": "?system=1", "history": "?scope=league", "inbox": "?all=1",
-                  "game": f"?id={gid}", "track": f"?id={gid}", "news": "?scope=league", "trade": f"?team={self.other}",
+                  "game": f"?id={gid}", "track": f"?id={gid}", "track2": f"?id={gid}", "news": "?scope=league", "trade": f"?team={self.other}",
                   "tradeeval": f"?team={self.other}&give=&get=", "tradeask": f"?team={self.other}&get=",
                   "tradeeval3": f"?a={self.other}&b={self.other}&legs=", "card": f"?id={self.pid}",
                   "negotiation": f"?id={self.pid}", "standings2": "?mode=division", "inbox2": "?folder=unread",

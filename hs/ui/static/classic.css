@@ -691,3 +691,34 @@ ul.rk-pbp { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow
 ul.rk-pbp li { padding: 4px 6px; border-bottom: 1px solid #eef1f5; cursor: pointer; } ul.rk-pbp li:hover { background: #f3f6fa; }
 ul.rk-pbp li .when { display: inline-block; width: 72px; color: #6b7785; font-variant-numeric: tabular-nums; }
 ul.rk-pbp li.goal { background: #fdecec; font-weight: 600; } ul.rk-pbp li.penalty { color: #8a5a00; }
+
+/* ---- v59: the rebuilt 2D game (ice.js) ---- */
+.ice { display: flex; flex-direction: column; gap: 6px; }
+.ice-board { display: flex; align-items: center; justify-content: space-between; background: #141b26; color: #fff; padding: 5px 10px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.ice-side { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+.ice-side.r { justify-content: flex-end; }
+.ice-side b { font-size: 26px; min-width: 26px; text-align: center; line-height: 1; }
+.ice-abbr { color: #fff; font-weight: 800; padding: 3px 10px; border-radius: 3px; letter-spacing: .04em; text-shadow: 0 1px 1px rgba(0,0,0,.45); }
+.ice-sog { color: #9fb0c6; font-size: 12px; }
+.ice-mid { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.ice-clock { font-size: 22px; min-width: 62px; text-align: center; }
+.ice-str { background: #e9c94a; color: #1b2433; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; }
+.ice-stage { position: relative; line-height: 0; }
+.ice-stage canvas { width: 100%; display: block; border-radius: 6px; }
+.ice-banner { position: absolute; left: 50%; bottom: 14%; transform: translate(-50%, 12px); background: rgba(20,27,38,.94); color: #fff; padding: 9px 18px; border-radius: 4px; font-size: 15px; line-height: 1.3; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; white-space: nowrap; border-left: 5px solid #c8102e; }
+.ice-banner.pen { border-left-color: #e9c94a; }
+.ice-banner.on { opacity: 1; transform: translate(-50%, 0); }
+.ice-toast { position: absolute; left: 50%; top: 8%; transform: translateX(-50%); background: rgba(20,27,38,.85); color: #fff; padding: 4px 12px; border-radius: 3px; font-size: 12px; font-weight: 800; letter-spacing: .08em; line-height: 1.3; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.ice-toast.on { opacity: 1; }
+.ice-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ice-ctl input[type=range] { flex: 1; min-width: 160px; }
+.ice-under { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 14px; }
+.ice-under ul, .ice-under ol { list-style: none; margin: 4px 0 0; padding: 0; }
+.ice-under li { padding: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ice-log li { white-space: normal; }
+.ice-n { display: inline-block; min-width: 22px; text-align: center; font-weight: 800; font-size: 11px; border: 2px solid; border-radius: 10px; padding: 0 2px; }
+@media (prefers-reduced-motion: reduce) { .ice-banner, .ice-toast { transition: none; } }
+.ice.theatre { position: fixed; inset: 0; z-index: 900; background: #0e131b; padding: 10px 14px; overflow: auto; color: #dfe6ef; }
+.ice.theatre .ice-stage canvas { margin: 0 auto; }
+.ice.theatre .ice-under { display: none; }
+.ice.theatre a { color: #9cc3ff; }

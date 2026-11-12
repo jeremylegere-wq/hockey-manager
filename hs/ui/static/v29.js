@@ -173,7 +173,9 @@ const gameV29 = VIEWS.game;
 VIEWS.game = async (id) => {
   const html = await gameV29(id);
   const old = AFTER;
-  AFTER = () => { Rink.mount($("#replay"), id).catch((e) => { console.warn("2D game unavailable:", e); if (old) old(); }); };
+  AFTER = () => {                                       // v59: the rebuilt 2D game; the v30 viewer, then the event replay, as fallbacks
+    Ice.mount($("#replay"), id).catch((e) => { console.warn("2D game (v59) unavailable:", e);
+      Rink.mount($("#replay"), id).catch((e2) => { console.warn("2D game unavailable:", e2); if (old) old(); }); }); };
   return html;
 };
 

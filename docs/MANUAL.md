@@ -163,6 +163,8 @@ priority and a deadline; meeting one gives +2 to +6 confidence, missing one cost
   **Hall of Fame** and your **GM score** and achievements.
 * **History**: league champions, awards, records, past drafts, season pages, club pages, every player's career.
 * **News**: headlines, recaps, a social feed, power rankings, and an archive.
+* **The 2D game**: open any played game to watch it on the rink: every player, the puck, line changes, power plays,
+  goals with their passes. Speed, cameras, goals only, full window (docs/RINK2D.md).
 
 ## 13. Making it yours
 

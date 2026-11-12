@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "0.58"
+VERSION = "0.59"
 
 DEFAULTS = {
     "ui_scale": 100,            # percent: the whole interface (resolution scaling)

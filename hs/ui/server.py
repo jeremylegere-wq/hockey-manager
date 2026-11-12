@@ -138,6 +138,7 @@ VIEWS = {
     "assistant": lambda c, q: __import__("hs.game.assistant", fromlist=["x"]).suggestions(c),
     "find": lambda c, q: SC.player_search(c, q),
     "track": lambda c, q: __import__("hs.sim.rink2d", fromlist=["x"]).track(c, int(q["id"])),
+    "track2": lambda c, q: __import__("hs.sim.ice2d", fromlist=["x"]).track(c, int(q["id"])),      # v59: the rebuilt 2D game
     # v37, phase F: the calendar
     "rivalries": lambda c, q: __import__("hs.game.rivalry", fromlist=["x"]).view(c, int(q.get("team") or __import__("hs.game.state", fromlist=["x"]).user_team(c))),
     "exhibitions": lambda c, q: __import__("hs.game.exhibitions", fromlist=["x"]).exhibitions_view(c, q.get("kind") or None, q.get("year")),
@@ -151,7 +152,7 @@ VIEWS = {
 }
 NO_GAME_OK = {"state"}
 UNEMPLOYED_OK = {"intl", "discipline", "college", "worldleagues", "hof", "legacy", "expansion", "retirednumbers", "state", "jobs", "manager", "gm", "news", "newsfeed", "standings", "standings2", "stats", "player", "playerx", "card", "team",
-                 "teams", "leagueday", "season", "reports", "milestones", "draftlog", "rules", "search", "article", "game", "track",
+                 "teams", "leagueday", "season", "reports", "milestones", "draftlog", "rules", "search", "article", "game", "track", "track2",
                  "inbox", "inbox2", "strip", "playoffs", "leaguehistory", "worldleagues", "expansion", "college", "challenge", "commish", "retirednumbers", "intl", "lineups", "discipline", "find", "teaminfo", "txnlog", "transactions", "playermarks", "notes", "calendar", "people", "devchart",
                  "exhibitions", "exbox", "allstar", "hof", "legacy", "gmleaders", "achievements", "simleaders"}
 

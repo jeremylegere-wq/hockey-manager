@@ -193,6 +193,9 @@ rater un coûte de 2 à 7. L'écran du Conseil montre tout.
 * **Histoire** : champions de la ligue, trophées, records, repêchages passés, pages de saison, pages de club, la carrière de
   chaque joueur.
 * **Nouvelles** : manchettes, résumés, un fil social, classements de puissance et des archives.
+* **Le match en 2D** : ouvrez n'importe quel match joué pour le regarder sur la patinoire : chaque joueur, la rondelle,
+  les changements de trio, les avantages numériques, les buts et leurs passes. Vitesse, caméras, buts seulement, pleine
+  fenêtre (docs/RINK2D.md, en anglais).
 
 ## 13. Faire le jeu à votre main
 

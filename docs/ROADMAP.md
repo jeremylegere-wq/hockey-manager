@@ -247,3 +247,9 @@ Each phase ships with its docs page, unit tests and a pass through every screen 
   `hs/leaguedata/fictional.py`), `hs/tools/make_mock_world.py`, and a first-run bootstrap (`--template auto --env auto`,
   `hs/bootstrap.py`, `data/env_default.json`). Help > Report a bug. README, the player's manual (`docs/MANUAL.md`), the
   build-your-own guide (`docs/BUILD_YOUR_OWN.md`), contributing, issue templates, licence and third-party notices.
+* **v59: the 2D game, rebuilt.** A plan of each played game (`hs/sim/ice_plan.py`: event times the ice allows, strength,
+  who was on the ice) and a new on-ice engine (`hs/sim/ice2d.py`) that plays it as hockey: breakouts, three lanes
+  through the neutral zone, the cycle, a 1-3-1 power play, forecheck and zone coverage, goalies on their angle, changes
+  on the fly, faceoffs, the penalty box, the sixth attacker, celebrations, the shootout. A new viewer (`ice.js`): jersey
+  tokens with numbers and sticks, benches and boxes, a broadcast scoreboard, banners, two cameras, full window. The
+  match engine still decides every result; nothing is written to the save, so every old game plays (docs/RINK2D.md).

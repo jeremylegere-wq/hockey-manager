@@ -164,6 +164,6 @@ used by default.
 | 6 | History | Where are the player histories from the database? | Fixed v43 | Read straight from database.db (layout worked out with the community editor's column names): every player's career season by season in every league, and 3,492 past NHL draft picks; the bundled world ships with them (docs/HISTORY.md) |
 | 7 | Trades | "Trade for him" should open the trade screen with him selected | Fixed v42 | He is ticked and scrolled into view (also from the right-click menu) |
 | 8 | Scouting | Goalie projections in goalie words | Fixed v42 | Franchise starter, starter, 1A, 1B, backup, 3rd string, AHL depth |
-| 9 | 2D game | On-ice play needs rework | Open | Waiting for the video |
+| 9 | 2D game | On-ice play needs rework | Fixed v59 | Rebuilt: hs/sim/ice_plan.py and hs/sim/ice2d.py play the engine's events as possessions (breakouts, entries, cycles, power-play and penalty-kill shapes, changes through the bench, faceoffs, the box, pulled goalies, the shootout); a new viewer (ice.js) with jersey tokens, a broadcast scoreboard, banners, two cameras and a full-window mode. Works on every game of every save (docs/RINK2D.md) |
 | 10 | World | Remove the old generated world | Fixed v42 | It no longer ships; the bundled world is the only one (others can still be imported or built from packs) |
 | 11 | Sim centre | The top bar pushes its buttons off screen | Fixed v42 | The bar wraps instead of overflowing, and once the sim stops it drops the pace buttons and progress bar to make room |
