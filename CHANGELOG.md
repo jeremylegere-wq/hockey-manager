@@ -6,6 +6,8 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
 
 ## [Unreleased]
 
+## [0.61] - 2026-11-15
+
 ### Added
 - Run a club in a European league (KHL, SHL, National League, Liiga, Czech Extraliga, DEL and the second tiers): the
   transfer market, loans, the board and European job openings (docs/EUROPE.md).
