@@ -148,7 +148,12 @@ class ImportTests(unittest.TestCase):
         ov = [overall_of(dict(r), r["pos"]) for r in rows]
         self.assertAlmostEqual(st.mean(ov), 10.49, delta=0.15)
         self.assertAlmostEqual(st.pstdev(ov), 0.86, delta=0.15)
-        self.assertGreater(st.correlation(ov, [r["ca"] for r in rows]), 0.95)
+        ca = [r["ca"] for r in rows]
+        # Pearson correlation by hand: statistics.correlation needs Python 3.10, the game supports 3.9
+        mo, mc = st.mean(ov), st.mean(ca)
+        r = sum((a - mo) * (b - mc) for a, b in zip(ov, ca)) / (
+            (sum((a - mo) ** 2 for a in ov) * sum((b - mc) ** 2 for b in ca)) ** 0.5)
+        self.assertGreater(r, 0.95)
 
     def test_edit_moves_engine_and_ability(self):
         pid = self.c.execute("SELECT player_id FROM players WHERE team_id=4 AND position='C' AND status='active' LIMIT 1").fetchone()[0]
