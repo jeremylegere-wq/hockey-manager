@@ -11,7 +11,7 @@ import datetime
 from collections import defaultdict
 
 from ..game import contracts as K
-from ..game.state import get_state, user_team
+from ..game.state import get_state, squad_team, user_team
 
 
 def _teams(conn):
@@ -122,7 +122,7 @@ def _decorate(conn, raw, year, goalie):
         for p in conn.execute(f"SELECT player_id, first_name, last_name, position, birth_date, nationality FROM players "
                               f"WHERE player_id IN ({','.join('?' * len(chunk))})", chunk):
             info[p[0]] = p
-    me = user_team(conn)
+    me = squad_team(conn)                                   # (v61: or the European club you run)
     out = []
     for r in raw:
         p = info.get(r["player_id"])
@@ -273,7 +273,7 @@ def team_page(conn, team_id, year=None):
     return dict(team=t, league=lg, season=year, seasons=years, skaters=sk, goalies=gl, playoff_skaters=po_sk,
                 record=record, history=hist, leaders=leaders, affiliates=affil,
                 parent=dict(team_id=parent["team_id"], abbr=parent["abbr"], name=parent["name"]) if parent else None,
-                staff=staff, mine=team_id == user_team(conn), awards=_awards_for(conn, team_id=team_id))
+                staff=staff, mine=team_id == squad_team(conn), awards=_awards_for(conn, team_id=team_id))
 
 
 def _awards_for(conn, team_id=None, player_id=None):

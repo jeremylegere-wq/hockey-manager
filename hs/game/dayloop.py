@@ -41,6 +41,12 @@ def _next_day(conn):
 
 def sim_day(conn, env, skill, user_team_id=None):
     """Play every unplayed regular-season game dated tomorrow; roll injuries; AI roster moves; commit."""
+    from ..perf import simulating                         # v60: read caches that live until the next write
+    with simulating(conn):
+        return _sim_day(conn, env, skill, user_team_id)
+
+
+def _sim_day(conn, env, skill, user_team_id=None):
     user_team_id = user_team_id if user_team_id is not None else user_team(conn)
     day, seed = _next_day(conn)
     s = DaySummary(day)
@@ -98,11 +104,18 @@ def sim_day(conn, env, skill, user_team_id=None):
         welfare.after_games(conn, day, [pid for pid, _ in played])
     from . import leagues as LGS                         # v44: the leagues around the NHL play their games today
     try:
-        s.league_news = LGS.day(conn, day, seed)
+        s.league_news = LGS.day(conn, day, seed, env, skill)
     except Exception as e:                               # a lower league never stops the NHL season
         import sys
         print(f"league day skipped: {e!r}", file=sys.stderr)
         import traceback; traceback.print_exc() if __import__("os").environ.get("HS_TRACE") else None
+    from . import europe as EU                           # v61: your European club: loans home, bids for your players
+    if EU.active(conn) or EU.history(conn):
+        try:
+            s.league_news = list(s.league_news or []) + EU.daily(conn, day)
+        except Exception as e:
+            import sys
+            print(f"europe day skipped: {e!r}", file=sys.stderr)
     from . import expansion as XP                        # v45: the league may announce an expansion club
     XP.maybe_announce(conn, day, seed)
     from . import challenge as CHL                       # v47: cap hell is judged on the first day simulated

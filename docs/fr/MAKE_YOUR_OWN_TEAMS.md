@@ -111,4 +111,5 @@ paquet, et « Écrire votre propre adaptateur » si vous voulez automatiser.
   partager. Gardez-la sur votre ordinateur. Ne la téléversez ni sur GitHub, ni sur un forum, ni sur un disque en ligne,
   ni par torrent. Dirigez plutôt les gens vers l'outil d'origine et montrez-leur comment faire la leur avec cette page.
 
-Un problème ? jeremy.legere@gmail.com, ou Aide > Signaler un bogue dans le jeu.
+Un problème ? Ouvrez un ticket sur la [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues),
+ou utilisez Aide > Signaler un bogue dans le jeu.

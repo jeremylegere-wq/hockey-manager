@@ -154,7 +154,7 @@ const Ice = (() => {
   };
   const perName = (p) => p === 5 ? "SO" : p === 4 ? "OT" : p > 5 ? `${p - 3}OT` : ["1st", "2nd", "3rd"][p - 1];
 
-  async function mount(el, gid) {
+  async function mount(el, gid, opts = {}) {
     const me = ++live;
     el.innerHTML = '<div class="rk-wait"><div class="rk-spin"></div><p class="muted">Building the 2D game...</p></div>';
     const tr = await api("track2", {id: gid});
@@ -304,7 +304,9 @@ const Ice = (() => {
           const inWin = goals.some((g) => i >= g.f - 60 && i <= g.f + 30);
           if (!inWin) { const nx = goals.find((g) => g.f - 60 > i); if (nx) pos = nx.f - 60; else { pos = n - 1; } }
         }
-        if (pos >= n - 1) { pos = n - 1; playing = false; $("#ice-play").textContent = "Play"; }
+        if (pos >= n - 1) { pos = n - 1; playing = false; $("#ice-play").textContent = "Play";
+          if (opts.live) { const b = $("#ice-banner"); b.innerHTML = `<b>FINAL</b> ${esc(tr.away.abbr)} ${tr.final[1]}, ${esc(tr.home.abbr)} ${tr.final[0]} <a href="#game/${gid}" id="ice-box">Box score</a>`;
+            b.className = "ice-banner on final"; bannerUntil = -1; $("#ice-box").onclick = () => theatre(false); } }
       }
       last = ts;
       frame();
@@ -319,8 +321,11 @@ const Ice = (() => {
     $("#ice-shot").onclick = () => { const g = rel.find((m) => m.f - 25 > pos + 1); if (g) jumpTo(g.f - 25); };
     window.addEventListener("resize", () => { if (document.body.contains(cv)) fit(); });
     const root = el.querySelector(".ice");
-    const theatre = (on) => { root.classList.toggle("theatre", on); $("#ice-full").textContent = on ? "Leave full window" : "Full window"; fit(); };
+    const theatre = (on) => {
+      if (opts.live && !on) { live++; if (opts.onClose) opts.onClose(); return; }           // watching live: leaving closes it
+      root.classList.toggle("theatre", on); $("#ice-full").textContent = on ? (opts.live ? "Close" : "Leave full window") : "Full window"; fit(); };
     $("#ice-full").onclick = () => theatre(!root.classList.contains("theatre"));
+    const theatreOn = () => { root.classList.add("theatre"); $("#ice-full").textContent = opts.live ? "Close" : "Leave full window"; fit(); };
     const keys = (e) => {
       if (!document.body.contains(cv)) { document.removeEventListener("keydown", keys, true); return; }
       if (!root.classList.contains("theatre") || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -332,8 +337,22 @@ const Ice = (() => {
       e.preventDefault(); e.stopPropagation();
     };
     document.addEventListener("keydown", keys, true);
+    if (opts.live) {                                                // your game, as it happens: no way to peek ahead
+      for (const id of ["ice-next", "ice-prev", "ice-shot", "ice-pos"]) $("#" + id).style.display = "none";
+      $("#ice-hl").parentElement.style.display = "none";
+      $("#ice-speed").value = "4"; speed = 4;
+      theatreOn(); playing = true; $("#ice-play").textContent = "Pause";
+    }
     el.__ice = {seek: jumpTo, play: () => { playing = true; $("#ice-play").textContent = "Pause"; }, frames: n, goals: goals.map((g) => g.f)};
     requestAnimationFrame(loop);
   }
-  return {mount};
+  // Watch a game in a window of its own, from the opening draw, with nothing on screen that gives the result away.
+  function watch(gid, onClose) {
+    let box = document.getElementById("ice-live");
+    if (box) box.remove();
+    box = document.createElement("div"); box.id = "ice-live"; document.body.appendChild(box);
+    const close = () => { box.remove(); if (onClose) onClose(); };
+    return mount(box, gid, {live: true, onClose: close}).catch((e) => { close(); throw e; });
+  }
+  return {mount, watch};
 })();

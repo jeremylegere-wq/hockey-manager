@@ -445,8 +445,10 @@ def place_unattached(conn, day):
     rng = _rng(conn, "place")
     leagues = club_league(conn)
     clubs_by_league = {}
+    from .europe import club as _managed                   # v61: nobody is placed at the club you run
+    mine = _managed(conn)
     for t, lid in leagues.items():
-        if lid in meta:
+        if lid in meta and t != mine:
             clubs_by_league.setdefault(lid, []).append(t)
     sizes = club_rosters(conn)
     rows = load_attrs(conn, "p.status IN ('active','injured') AND p.team_id IS NULL AND p.club_id IS NULL AND "
@@ -512,9 +514,11 @@ def trim_clubs(conn, day):
     leagues = club_league(conn)
     sizes = club_rosters(conn)
     cut = 0
+    from .europe import club as _managed                   # v61: the club you run is yours to trim
+    mine = _managed(conn)
     for club, n in sorted(sizes.items()):
         m = meta.get(leagues.get(club))
-        if not m or n <= m["roster"] + 2:
+        if not m or n <= m["roster"] + 2 or club == mine:
             continue
         own = load_attrs(conn, "p.club_id=? AND p.team_id IS NULL AND p.status<>'retired'", (club,))
         protected = _class_prospects(conn)
@@ -536,7 +540,9 @@ def fill_clubs(conn, day):
     leagues = club_league(conn)
     sizes = club_rosters(conn)
     made = 0
-    for club in sorted(t for t, lid in leagues.items() if lid in meta):
+    from .europe import club as _managed                   # v61: your club recruits for itself (and has an academy)
+    mine = _managed(conn)
+    for club in sorted(t for t, lid in leagues.items() if lid in meta and t != mine):
         m = meta[leagues[club]]
         goalies = conn.execute("SELECT COUNT(*) FROM players WHERE club_id=? AND position='G' AND status<>'retired'",
                                (club,)).fetchone()[0]

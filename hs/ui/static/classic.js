@@ -186,7 +186,7 @@ function updateHeader() {
   $("#sh-crest").innerHTML = crest(STATE.abbr, 44);
   $("#tb-team").textContent = STATE.team;
   const d = new Date(STATE.date + "T12:00:00");
-  $("#sh-date").textContent = isNaN(d) ? STATE.date : d.toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", year: "numeric"});
+  $("#sh-date").textContent = isNaN(d) ? STATE.date : d.toLocaleDateString(typeof uiLocale === "function" && uiLocale() !== "en-US" ? uiLocale() : "en-GB", {weekday: "short", day: "numeric", month: "short", year: "numeric"});
   const r = STATE.record;
   $("#sh-record").textContent = r ? `${r.w}-${r.l}-${r.otl}${r.t ? "-" + r.t : ""}, ${r.pts} pts` : "";
   const title = `${STATE.team} (${STATE.save || ""}) - ${SCREEN_NAMES[view] || "Office"}`;
@@ -244,7 +244,7 @@ const Launch = {
       ["ln-set", gearIco, "SETTINGS", "Configure your game", false],
       ["ln-cred", credIco, "CREDITS", "Who made this, and with what", false],
       ["ln-exit", exitIco, "EXIT", "Quit the game", false]];
-    el.innerHTML = `<div class="ln-ver">v${esc(APP.version || "")}</div><div class="ln-stage"><div class="ln-brand">HOCKEY <span>MANAGER</span></div>
+    el.innerHTML = `<div class="ln-ver">v${esc(APP.version || "")}${APP.build ? " · build " + esc(APP.build) : ""}</div><div class="ln-stage"><div class="ln-brand">HOCKEY <span>MANAGER</span></div>
       ${entries.map(([id, ico, t, sub, dis], k) => `<button class="ln-block${k === (latest ? 0 : 1) ? " hot" : ""}" id="${id}" style="top:${TOPS[k]}%"${dis ? " disabled" : ""}>
         <span class="ln-ico">${ico}</span><span class="ln-txt"><b>${t}</b><i>${sub}</i></span><span class="ln-chev2">&#8250;</span></button>`).join("")}</div>
       ${APP.desktop ? "" : '<div class="ln-note">Running in a browser tab. Start it with play.sh / PLAY_WINDOWS.bat for its own window.</div>'}`;
@@ -328,7 +328,7 @@ const Credits = {
   open(about = false) {
     Modal.open(`<div class="win-title">${about ? "About Hockey Manager" : "Credits"}</div>
       <div class="credits">
-        <div class="cr-logo">HOCKEY <span>MANAGER</span><i>version ${esc(APP.version || "")}</i></div>
+        <div class="cr-logo">HOCKEY <span>MANAGER</span><i>version ${esc(APP.version || "")}${APP.build ? " · build " + esc(APP.build) : ""}</i></div>
         <h4>Design / Architecture / Written by</h4><p>Jeremy Legere</p>
         <h4>Inspired by</h4><p>The classic hockey management games of the early 2000s, reimagined with modern mechanics.</p>
         <h4>Built with</h4><ul>
@@ -358,7 +358,7 @@ VIEWS.calendar = async (arg) => {
   for (let dd = 1; dd <= days; dd++) {
     const ds = `${d.month}-${String(dd).padStart(2, "0")}`;
     const gs = (byDate[ds] || []).map((g) => `<div class="cal-g ${g.home ? "home" : "away"} ${g.result ? "r-" + g.result.toLowerCase() : ""}">${crest(g.opponent, 13)}<span>${g.home ? "vs" : "@"} ${esc(g.opponent)}</span>
-      ${g.played ? `<a href="#game/${g.game_id}" class="sc">${esc(g.result)} ${esc(g.score)}${g.ot ? " " + g.ot : ""}</a>` : g.type === "PO" ? '<i>playoffs</i>' : ""}</div>`).join("");
+      ${g.played ? (g.game_id ? `<a href="#game/${g.game_id}" class="sc">${esc(g.result)} ${esc(g.score)}${g.ot ? " " + g.ot : ""}</a>` : `<span class="sc">${esc(g.result)} ${esc(g.score)}${g.ot ? " " + g.ot : ""}</span>`) : g.type === "PO" ? '<i>playoffs</i>' : ""}</div>`).join("");
     const es = (ev[ds] || []).map((x) => `<div class="cal-e">${esc(x)}</div>`).join("");
     cells.push(`<td class="${ds === d.today ? "today" : ""}${ds < d.today ? " past" : ""}"><div class="cal-d">${dd}</div>${es}${gs}</td>`);
   }

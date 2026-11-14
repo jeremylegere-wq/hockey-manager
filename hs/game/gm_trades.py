@@ -551,3 +551,77 @@ def _depth_call(conn, m, me, buyer, mine, day, rng):
     if T._hit(conn, target) > T._cap_room(conn, buyer):
         return None
     return _post_offer(conn, day, buyer, [("pick", opts[0][1])], target, "depth")
+
+
+# ---------------------------------------------------------------- v61: the needs tab on the trade screen
+GROUP_NAME = {"F": "forwards", "D": "defence", "G": "goal"}
+REGULARS = {"F": 13, "D": 7, "G": 2}
+
+
+def _need_word(n):
+    return "urgent" if n >= 60 else "a need" if n >= 35 else "some" if n >= 15 else "set"
+
+
+def needs_tab(conn, m, me, other):
+    """What the other club is after and what it can spare, from the same picture its AI trades from (the v39 need
+    scores, its posture and each player's friction): its situation, need and depth by position, your players who would
+    fill a hole there, and its players who could be had."""
+    from . import contracts as K
+    from . import roster as R
+    from .events import team_abbr
+    year = K.season_year(conn)
+    cap = K.crules(conn)["cap_ceiling"]
+
+    def situation(t):
+        n = m.needs.get(t, {})
+        groups = {}
+        for g in ("F", "D", "G"):
+            ros = sorted(((m.values.get(r["player_id"], 0.0), r) for r in R.roster(conn, t) if R.group(r["position"]) == g
+                          and r["status"] in ("active", "injured")), key=lambda x: -x[0])
+            surplus = len(ros) > REGULARS[g] and n.get(g, 0) < 15
+            groups[g] = dict(need=round(n.get(g, 0)), word=_need_word(n.get(g, 0)), players=len(ros), surplus=surplus)
+        room = (cap - K.payroll(conn, t, year)) if cap else None
+        nxt = (cap - K.payroll(conn, t, year + 1)) if cap else None
+        posture = m.outlook.get(t, "middle")
+        wants = {"contender": "help now: players who play this season, ideally on expiring deals; picks and prospects are a "
+                              "price it will pay",
+                 "seller": "the future: picks and prospects under 23, and cap room; it will move veterans and salary",
+                 "middle": "fair value either way; it trades where it is thin for where it is deep"}[posture]
+        return dict(abbr=team_abbr(conn, t), posture=posture, rank=m.rank.get(t), cap_room=room, cap_room_next=nxt,
+                    groups=groups, wants=wants)
+
+    name = lambda pid: conn.execute("SELECT first_name||' '||last_name FROM players WHERE player_id=?", (pid,)).fetchone()[0]
+    them, mine = situation(other), situation(me)
+    fits = []                                         # my players who would fill their hole
+    for g, info in them["groups"].items():
+        if info["need"] < 15:
+            continue
+        for r in R.roster(conn, me):
+            if R.group(r["position"]) != g or r["status"] not in ("active", "injured"):
+                continue
+            v = m.values.get(r["player_id"], 0.0)
+            role = TM.role_of(m, other, v, g)
+            if role >= 0.5:
+                c = K.current_contract(conn, r["player_id"], year)
+                fits.append(dict(player_id=r["player_id"], name=name(r["player_id"]), pos=r["position"],
+                                 group=g, value=round(v, 1), role={1.0: "top line or pair", 0.75: "second unit"}.get(role, "third unit"),
+                                 cap=c["cap_hit"] if c else None, need=info["need"]))
+    fits.sort(key=lambda x: (-x["need"], -x["value"]))
+    gettable = []                                     # their players who could be had
+    top_need = max(mine["groups"], key=lambda g: mine["groups"][g]["need"])
+    for r in R.roster(conn, other):
+        if r["status"] not in ("active", "injured"):
+            continue
+        pid = r["player_id"]
+        f = m.friction(pid, other)
+        g = R.group(r["position"])
+        if f >= 60:
+            continue
+        c = K.current_contract(conn, pid, year)
+        gettable.append(dict(player_id=pid, name=name(pid), pos=r["position"], group=g,
+                             value=round(m.values.get(pid, 0.0), 1), friction=round(f),
+                             word="available" if f < 15 else "possible" if f < 35 else "hard",
+                             cap=c["cap_hit"] if c else None, ends=(c["start_year"] + c["years"]) if c else None,
+                             helps_you=mine["groups"][g]["need"] >= 35 or (g == top_need and mine["groups"][g]["need"] >= 15)))
+    gettable.sort(key=lambda x: (not x["helps_you"], -x["value"]))
+    return dict(them=them, you=mine, fits=fits[:8], gettable=gettable[:10])

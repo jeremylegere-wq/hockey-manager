@@ -87,12 +87,28 @@ class CLI(cmd.Cmd):
         if get_state(self.conn) is None:
             raise ValueError("No game started. Use: new <TEAM_ABBR> [seed]")
         fired = self.conn.execute("SELECT value FROM pack_info WHERE key='gm_status'").fetchone()
+        if fired and fired[0] == "europe" and not allow_fired:            # v61: you run a European club
+            from . import europe as EU
+            raise ValueError(f"You run {EU._club_name(self.conn, EU.club(self.conn))} in Europe: NHL club commands are not "
+                             "yours. `club` shows your club; `jobs` lists NHL clubs looking for a GM.")
         if fired and not allow_fired:
             raise ValueError("You are out of work. `jobs` lists the clubs looking for a GM; `apply <ABBR>` to apply. "
                              "`sim` and `offseason` keep the world going.")
         if user_team(self.conn) is None and not fired:
             raise ValueError("No game started. Use: new <TEAM_ABBR> [seed]")
         return user_team(self.conn)
+
+    def need_squad(self):
+        """The club whose lines, roles and tactics you set: your NHL club, else the European club you run (v61)."""
+        if get_state(self.conn) is None:
+            raise ValueError("No game started. Use: new <TEAM_ABBR> [seed]")
+        from .state import squad_team
+        t = squad_team(self.conn)
+        return t if t is not None else self.need()
+
+    def squad_where(self, me):
+        from .state import member_sql
+        return member_sql(self.conn, me)
 
     def today(self):
         return get_state(self.conn)[0]
@@ -446,20 +462,20 @@ class CLI(cmd.Cmd):
     def do_lines(self, arg):
         """lines | lines set F1 <C>, <LW>, <RW> [; D2 <L>, <R>; G <starter>, <backup>; PP1 <5>; PK1 <4>]
         | lines swap <p1> <p2> | lines auto: show or set the lines the engine uses (docs/LINES.md)"""
-        me = self.need()
+        me = self.need_squad()
         from . import lineup as L
         a = arg.strip()
         if a.lower().startswith("set "):
             for part in filter(None, (x.strip() for x in a[4:].split(";"))):
                 unit, _, who = part.partition(" ")
                 pids = [] if who.strip().lower() == "none" else \
-                    [self.find(x.strip(), "team_id=?", (me,))["player_id"] for x in who.split(",") if x.strip()]
+                    [self.find(x.strip(), self.squad_where(me), (me,))["player_id"] for x in who.split(",") if x.strip()]
                 L.set_unit(self.conn, me, unit, pids)
             self.conn.commit()
         elif a.lower().startswith("swap "):
             x, y = [t.strip() for t in re.split(r"\s*,\s*|\s+(?=\S+$)", a[5:].strip(), maxsplit=1)]
-            L.swap(self.conn, me, self.find(x, "team_id=?", (me,))["player_id"],
-                   self.find(y, "team_id=?", (me,))["player_id"])
+            L.swap(self.conn, me, self.find(x, self.squad_where(me), (me,))["player_id"],
+                   self.find(y, self.squad_where(me), (me,))["player_id"])
             self.conn.commit()
         elif a.lower() == "auto":
             L.reset(self.conn, me)
@@ -500,7 +516,7 @@ class CLI(cmd.Cmd):
         your tactics (docs/TACTICS.md): a preset (balanced, heavy forecheck, puck possession, defensive structure,
         speed and transition), one of the twelve settings, or a preference (pull_down1, pull_down2, goalie_hook,
         line_matching, ice_time)"""
-        me = self.need()
+        me = self.need_squad()
         from . import boardroom as BR
         from . import tactics as TC
         a = arg.strip()
@@ -547,7 +563,7 @@ class CLI(cmd.Cmd):
     def do_troles(self, arg):
         """troles | troles suggest | troles clear | troles info | troles <player> <role|none> : tactical roles (agitator,
         shadow, net_front, trigger, forechecker, enforcer, pk_specialist, shutdown, puck_mover, pp_qb, crease_clearer, rover)"""
-        me = self.need()
+        me = self.need_squad()
         from . import troles as TR
         c = self.conn
         a = arg.strip()
@@ -572,7 +588,7 @@ class CLI(cmd.Cmd):
             parts = a.rsplit(" ", 1)
             if len(parts) != 2 or (parts[1].lower() not in TR.ROLES and parts[1].lower() != "none"):
                 raise ValueError("Usage: troles <player> <role|none> (troles info lists the roles)")
-            r = self.find(parts[0], "team_id=?", (me,))
+            r = self.find(parts[0], self.squad_where(me), (me,))
             f = TR.set_role(c, me, r["player_id"], parts[1].lower())
             c.commit()
             self.p(f"{r['first_name']} {r['last_name']}: " + (f"{TR.ROLES[parts[1].lower()][0]}, fit {f}" if f is not None else "no role"))
@@ -1285,9 +1301,13 @@ class CLI(cmd.Cmd):
             self.p(f"  `propose {v['player_id']} <aav> <years> [ntc]` to answer, `endtalks {v['player_id']}` to stop")
 
     def do_propose(self, arg):
-        "propose <player> <aav> <years> [flat|front|bonus] [ntc|nmc|mntc|mntc_late]: your offer in contract talks"
+        """propose <player> <aav> <years> [flat|front|bonus] [ntc|nmc|mntc|mntc_late] [perf=<amount>]: your offer in
+        contract talks (perf: performance bonuses on a one-year deal for a 35+ or injured veteran)"""
         self.need()
         from . import negotiation as N
+        pf_ = re.search(r"\sperf\s*=\s*(\$?[\d.,]+[mMkK]?)", arg)
+        perf = self.money(pf_.group(1)) if pf_ else 0
+        arg = re.sub(r"\sperf\s*=\s*\$?[\d.,]+[mMkK]?", "", arg)
         st_ = re.search(r"\s(flat|front|bonus)\b", arg, re.I)
         structure = st_.group(1).lower() if st_ else "flat"
         arg = re.sub(r"\s(flat|front|bonus)\b", "", arg, flags=re.I)
@@ -1298,7 +1318,7 @@ class CLI(cmd.Cmd):
         if aav is None or years is None:
             raise ValueError("Usage: propose <player> <aav> <years> [ntc], e.g. propose Suzuki 7.5m 6")
         r = self.find(who, "(team_id=? OR team_id IS NULL)", (user_team(self.conn),))
-        outcome, v = N.offer(self.conn, r["player_id"], aav, years, ntc, structure)
+        outcome, v = N.offer(self.conn, r["player_id"], aav, years, ntc, structure, perf=perf)
         self.conn.commit()
         self.p({"agreed": "AGREED.", "counter": "Counter-offer.", "broken": "Talks broken off."}[outcome])
         self._talks(v)
@@ -1658,8 +1678,9 @@ class CLI(cmd.Cmd):
 
     def do_lineups(self, arg):
         """lineups | lineups on|off | lineups list <C|LW|RW|LD|RD|G|PP|PK> <player>, <player> ... | lineups goalie usual|every_game|
-        back_to_back|every_fourth : priority lists that rebuild your lines before every game"""
-        me = self.need()
+        back_to_back|every_fourth | lineups lock <player> <F1-F4|D1-D3> <C|LW|RW|LD|RD> | lineups unlock <player>|all :
+        priority lists that rebuild your lines before every game; a locked player keeps his place"""
+        me = self.need_squad()
         from . import lineups as LUP
         c = self.conn
         a = arg.strip()
@@ -1676,13 +1697,35 @@ class CLI(cmd.Cmd):
             return
         if low.startswith("list "):
             key, _, names = a[5:].partition(" ")
-            pids = [int(x) if x.strip().isdigit() else self.find(x, "team_id=?", (me,))["player_id"] for x in names.split(",") if x.strip()]
+            pids = [int(x) if x.strip().isdigit() else self.find(x, self.squad_where(me), (me,))["player_id"] for x in names.split(",") if x.strip()]
             LUP.set_list(c, me, key.upper(), pids)
             c.commit()
             self.p(f"{key.upper()} list saved ({len(pids)}).")
             return
+        if low.startswith("lock "):                          # lineups lock <player> F1 LW
+            m = re.match(r"(.+?)\s+([FfDd]\d)\s+(\w+)\s*$", a[5:].strip())
+            if not m:
+                raise ValueError("Usage: lineups lock <player> <F1-F4|D1-D3> <C|LW|RW|LD|RD>")
+            pl = self.find(m.group(1), self.squad_where(me), (me,))
+            LUP.set_lock(c, me, pl["player_id"], m.group(2), m.group(3))
+            c.commit()
+            self.p(f"{pl['first_name']} {pl['last_name']} is locked at {m.group(2).upper()} {m.group(3).upper()}.")
+            return
+        if low.startswith("unlock"):
+            who = a[6:].strip()
+            if who.lower() in ("", "all"):
+                LUP.clear_locks(c, me)
+                self.p("All locks removed.")
+            else:
+                pl = self.find(who, self.squad_where(me), (me,))
+                LUP.set_lock(c, me, pl["player_id"])
+                self.p(f"{pl['first_name']} {pl['last_name']} is unlocked.")
+            c.commit()
+            return
         v = LUP.view(c, me)
         self.p(f"Lineups: {'on' if v['enabled'] else 'off'}; goalie rule {v['goalie_rule']}.")
+        for x in v.get("locks", []):
+            self.p(f"  locked: {x['name']} at {x['unit']} {x['pos']}")
         for k, xs in v["lists"].items():
             self.p(f"  {k:<3}" + ", ".join(x["name"] + ("" if x["status"] == "active" else f" ({x['status']})") for x in xs))
 
@@ -2233,10 +2276,150 @@ class CLI(cmd.Cmd):
         self.p(E.shop_rights(self.conn, me, r["player_id"], self.today()))
         self.conn.commit()
 
+    def do_club(self, arg):
+        """club : your European club (squad, budget, offers). club start <club> : take a job in Europe (`club start` lists
+        the clubs). club market [F|D|G|C|LW|RW] [age<=N] [fee<=N] [free] : players you could sign. club buy <player> <fee>
+        <wage> <years> : a transfer (fee 0 for a free agent). club loan <player> [share%] [until YYYY-MM-DD] : borrow a
+        player. club lend <player> <club> [share%] : lend one of yours. club recall|release <player>. club renew <player>
+        <wage> <years>. club offer <id> accept|reject : an offer for one of your players. club board. club jobs |
+        club apply <club> : European openings (docs/EUROPE.md)."""
+        self.need(allow_fired=True)
+        from . import europe as EU
+        a = arg.strip().split()
+        sub = a[0].lower() if a else ""
+        c = self.conn
+        if sub == "start":
+            if len(a) == 1:
+                for x in EU.clubs_to_run(c):
+                    self.p(f"  {x['league']:<7}{x['name']}")
+                self.p("`club start <club>` takes the job (you leave your NHL club if you have one).")
+                return
+            text = " ".join(a[1:]).lower()
+            hits = [x for x in EU.clubs_to_run(c) if (text.isdigit() and x["team_id"] == int(text)) or text in x["name"].lower()]
+            if len(hits) != 1:
+                raise ValueError("Name one club: " + "; ".join(f"{x['name']} ({x['league']})" for x in hits[:10]) if hits else "No such club.")
+            name = EU.start(c, hits[0]["team_id"], self.today())
+            c.commit()
+            self.p(f"You now run {name}.")
+            return
+        from . import eu_board as EB
+        if sub == "jobs":                                  # v61: European openings
+            j = EB.jobs(c)
+            self.p(f"Reputation {j['reputation']:.0f}." + (" A new European career may take any club (`club start`)." if j["free_choice"] else ""))
+            for x in j["jobs"]:
+                self.p(f"  {x['league']:<7}{x['name']:<30} wants {x['demand']}  your chance {int(x['chance'] * 100)}%")
+            if not j["jobs"]:
+                self.p("  No European club is looking for a coach right now (openings come each summer).")
+            return
+        if sub == "apply":
+            text = " ".join(a[1:]).lower()
+            hits = [x for x in EB.jobs(c)["jobs"] if (text.isdigit() and x["team_id"] == int(text)) or text in x["name"].lower()]
+            if len(hits) != 1:
+                raise ValueError("Name one club from `club jobs`.")
+            ok = EB.apply(c, hits[0]["team_id"], self.today())
+            c.commit()
+            self.p(f"{hits[0]['name']} hire you." if ok else f"{hits[0]['name']} said no (your inbox has why).")
+            return
+        if not EU.active(c):
+            raise ValueError("You do not run a European club. `club start` lists the clubs you could take; `club jobs` the openings.")
+        if sub in ("lineup", "tactic"):                    # v61: the game's own screens now
+            raise ValueError("Your club's lines are set like an NHL club's: `lines` (Lineup screen), `lineups` for the "
+                             "lists and the goalie rule, `tactics` and `troles`.")
+        if sub == "board":
+            b = EB.board(c)
+            if b:
+                self.p(f"Target: top {b['target']}{' and the title' if b['title'] else ''}. Board confidence {round(b['confidence'])}/100."
+                       + (f" Last verdict: {b['note']}" if b["note"] else ""))
+            return
+        if sub in ("", "squad"):
+            v = EU.view(c)
+            b = v["budget"]
+            self.p(f"{v['name']} ({v['league']}), {v['place'] or '-'} of {v['clubs_in_league']}. Window {'open' if v['window'] else 'shut'}. "
+                   f"Transfer budget €{b['transfer_budget']:,}; wages €{v['wage_bill']:,} of €{b['wage_budget']:,}.")
+            for x in v["squad"]:
+                self.p(f"  {x['pos']:<3}{x['name']:<26}{x['age']:>3}  {x['nat'] or '':<4}{x['overall']:>6}  "
+                       + (f"loan from {x['loan_from']} to {x['loan_until']}" if x["loan_from"] else
+                          "NHL organisation" if x["nhl"] else f"€{x['wage'] or 0:,} to {x['until'] or '-'}"))
+            for o in v["offers"]:
+                self.p(f"  OFFER #{o['offer_id']}: {o['club']} bid €{o['fee']:,} for {o['player']} (`club offer {o['offer_id']} accept`)")
+            return
+        if sub == "market":
+            pos = next((t.upper() for t in a[1:] if t.upper() in ("F", "D", "G", "C", "LW", "RW")), None)
+            age = next((int(t[5:]) for t in a[1:] if t.startswith("age<=")), None)
+            fee = next((self.money(t[5:]) for t in a[1:] if t.startswith("fee<=")), None)
+            for x in EU.market(c, pos=pos, age_max=age, fee_max=fee, free_only="free" in a, limit=40):
+                self.p(f"  #{x['player_id']:<7}{x['pos']:<3}{x['name']:<26}{x['age']:>3} {x['overall']:>6}  {x['club'][:24]:<25}"
+                       f"{(x['league'] or ''):<7}fee €{x['fee']:,}" + ("  (loanable)" if x["loanable"] else ""))
+            return
+        if sub == "buy":
+            if len(a) < 5:
+                raise ValueError("Usage: club buy <player> <fee> <wage> <years>")
+            r = self.find(" ".join(a[1:-3]))
+            ok, text = EU.bid(c, r["player_id"], self.money(a[-3]), self.money(a[-2]), int(a[-1]), self.today())
+        elif sub == "loan":
+            until = next((t for t in a[2:] if len(t) == 10 and t[4] == "-"), None)
+            share = next((float(t.rstrip("%")) / 100 for t in a[2:] if t.endswith("%")), 0.5)
+            who = " ".join(t for t in a[1:] if t != until and not t.endswith("%"))
+            r = self.find(who)
+            ok, text = EU.loan(c, r["player_id"], share, until, self.today())
+        elif sub == "lend":
+            share = next((float(t.rstrip("%")) / 100 for t in a if t.endswith("%")), 0.5)
+            rest = [t for t in a[1:] if not t.endswith("%")]
+            clubs = EU.clubs_to_run(c)
+            for k in range(1, len(rest)):
+                cl = " ".join(rest[k:]).lower()
+                hit = [x for x in clubs if (cl.startswith("#") and cl[1:].isdigit() and x["team_id"] == int(cl[1:]))
+                       or (not cl.startswith("#") and cl in x["name"].lower())]
+                if len(hit) == 1:
+                    r = self.find(" ".join(rest[:k]), "club_id=?", (EU.club(c),))
+                    ok, text = EU.loan_out(c, r["player_id"], hit[0]["team_id"], share, None, self.today())
+                    break
+            else:
+                raise ValueError("Usage: club lend <player> <club> [share%]")
+        elif sub in ("recall", "release"):
+            r = self.find(" ".join(a[1:]))
+            text = (EU.recall if sub == "recall" else EU.release)(c, r["player_id"], self.today())
+        elif sub == "renew":
+            if len(a) < 4:
+                raise ValueError("Usage: club renew <player> <wage> <years>")
+            r = self.find(" ".join(a[1:-2]), "club_id=?", (EU.club(c),))
+            ok, text = EU.renew(c, r["player_id"], self.money(a[-2]), int(a[-1]), self.today())
+        elif sub == "offer":
+            if len(a) < 3 or a[2].lower() not in ("accept", "reject"):
+                raise ValueError("Usage: club offer <id> accept|reject")
+            text = EU.respond(c, int(a[1].lstrip("#")), a[2].lower() == "accept", self.today())
+        else:
+            raise ValueError("Unknown: `help club` lists what the club command does.")
+        c.commit()
+        self.p(text)
+
     def do_leagues(self, arg):
-        "leagues: the leagues in this world, their level and clubs"
-        self.need()
+        """leagues | leagues play <league> on|off | leagues play all|none|core : the leagues in this world; which of them
+        play game by game (the others are simulated a season at a time, which is faster)"""
+        self.need(allow_fired=True)
         from . import world as Wd
+        a = arg.strip().split()
+        if a and a[0].lower() == "play":
+            from . import leagues as LGS
+            from ..leaguedata.league_rules import APPROXIMATE
+            sel = LGS.selection(self.conn)
+            if len(a) == 2 and a[1].lower() in ("all", "none", "core"):
+                for x in sel:
+                    want = a[1].lower() == "all" or (a[1].lower() == "core" and x["abbr"] not in APPROXIMATE)
+                    if want != x["play"]:
+                        self.p(LGS.set_play(self.conn, x["league_id"], want))
+            elif len(a) == 3 and a[2].lower() in ("on", "off"):
+                x = next((x for x in sel if x["abbr"].lower() == a[1].lower()), None)
+                if x is None:
+                    raise ValueError("No league with a season by that name. `leagues play` lists them.")
+                self.p(LGS.set_play(self.conn, x["league_id"], a[2].lower() == "on"))
+            elif len(a) > 1:
+                raise ValueError("Usage: leagues play <league> on|off | leagues play all|none|core")
+            self.conn.commit()
+            for x in LGS.selection(self.conn):
+                self.p(f"  {x['abbr']:<8}{'game by game' if x['play'] else 'a season at a time':<20}{x['clubs']:>3} clubs  {x['name']}"
+                       + ("  (approximate format)" if x["approximate"] else ""))
+            return
         meta = Wd.world_meta(self.conn)
         for r in self.conn.execute("SELECT l.league_id, l.abbr, l.name, l.level, COUNT(t.team_id) n FROM leagues l "
                                    "LEFT JOIN teams t USING (league_id) GROUP BY l.league_id ORDER BY l.level, l.abbr"):

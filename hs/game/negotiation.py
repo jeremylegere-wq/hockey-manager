@@ -326,12 +326,20 @@ def view(conn, pid):
     if (pers.get("ego") or 0) >= 7:
         wants.append(dict(k="ego", text="to be paid like a star"))
     out["wants"] = wants
+    from . import vetbonus as VB                       # v61: one-year performance bonuses for veterans
+    vk = VB.eligible(conn, pid, 1)
+    if vk:
+        out["perf"] = dict(kind=vk, value=VB.PERF_VALUE, max_share=VB.MAX_SHARE, text=(
+            "He is 35 or older: a one-year deal can carry performance bonuses." if vk == "35+" else
+            "He has 400+ NHL games and spent 100+ days injured last season: a one-year deal can carry performance bonuses."))
     out["personality"] = {k: pers.get(k) for k in ("ambition", "loyalty", "ego", "patience") if pers.get(k) is not None}
     return out
 
 
-def offer(conn, pid, aav, years, ntc=False, structure="flat"):
-    """One round. Returns (outcome, view): outcome 'agreed', 'counter' or 'broken'."""
+def offer(conn, pid, aav, years, ntc=False, structure="flat", perf=0):
+    """One round. Returns (outcome, view): outcome 'agreed', 'counter' or 'broken'. v61 `perf`: performance bonuses on
+    top of `aav` (one-year deals for 35+ and injured veterans only: hs/game/vetbonus.py); he counts them at
+    PERF_VALUE of guaranteed money."""
     r = _row(conn, pid)
     if r is None or r["status"] != "open":
         open_talks(conn, pid)
@@ -346,6 +354,20 @@ def offer(conn, pid, aav, years, ntc=False, structure="flat"):
         raise R.RosterError(f"At least the league minimum ({_money(cr['min_salary'])}).")
     if cr["cap_ceiling"] and aav > cr["max_salary_pct"] * cr["cap_ceiling"]:
         raise R.RosterError(f"Above the maximum salary ({_money(cr['max_salary_pct'] * cr['cap_ceiling'])}).")
+    perf = int(perf or 0)
+    vb_kind = None
+    if perf:
+        from . import vetbonus as VB
+        vb_kind = VB.eligible(conn, pid, years)
+        if vb_kind is None:
+            raise R.RosterError("Performance bonuses are only for one-year deals with players 35 or older, or veterans "
+                                "(400+ games) who spent 100+ days injured last season.")
+        if perf > VB.MAX_SHARE / (1 - VB.MAX_SHARE) * aav:
+            raise R.RosterError(f"At most {int(VB.MAX_SHARE * 100)}% of the deal can be bonuses.")
+        VB.check_cushion(conn, user_team(conn), perf, base=aav)
+        worth = aav + perf * VB.PERF_VALUE
+    else:
+        worth = aav
     p = _player(conn, pid)
     name = p["first_name"]
     ag = agent_of(pid)
@@ -367,7 +389,8 @@ def offer(conn, pid, aav, years, ntc=False, structure="flat"):
     ask = r["demand"] * _term_factor(years, pref) * ntc_adj
     ask = max(ask, fl)
     log = json.loads(r["log"] or "[]")
-    log.append(dict(who="you", text=f"{years} yr x {_money(aav)}" + (f" with {CLAUSE_TEXT[clause]}" if clause != "none" else "")
+    log.append(dict(who="you", text=f"{years} yr x {_money(aav)}" + (f" plus up to {_money(perf)} in performance bonuses" if perf else "")
+                    + (f" with {CLAUSE_TEXT[clause]}" if clause != "none" else "")
                     + {"flat": "", "front": ", front-loaded", "bonus": ", mostly signing bonus"}[structure],
                     aav=aav, years=years, ntc=clause, structure=structure, day=day))
     ntc = clause
@@ -378,21 +401,28 @@ def offer(conn, pid, aav, years, ntc=False, structure="flat"):
         log.append(dict(who="agent", text=text, day=day))
         final = int(round(aav / 5000) * 5000)
         log.append(dict(who="agent", day=day, text=f"So that's {years} year{'s' if years != 1 else ''} at {_money(final)} a season, "
-                        f"{_money(final * years)} in all{', with ' + CLAUSE_TEXT[ntc] if ntc != 'none' else ''}. I'll have the paperwork with the league office today."))
+                        f"{_money(final * years)} in all{' plus up to ' + _money(perf) + ' in bonuses' if perf else ''}"
+                        f"{', with ' + CLAUSE_TEXT[ntc] if ntc != 'none' else ''}. I'll have the paperwork with the league office today."))
         log.append(dict(who="player", day=day, text=rng.choice(
             ["I wanted to stay. Thanks for getting it done.", "This is home. Now let's go win something.",
              "Happy it's sorted. I can just play hockey now."] if kind == "extend" else
             ["Can't wait to get started. I picked this team for a reason.", "Thanks for believing in me. I'll be ready.",
              "Let's get to work."])))
         _sign(conn, pid, kind, int(round(aav / 5000) * 5000), years, ntc, day, structure)
+        if perf:
+            from . import vetbonus as VB
+            VB.record(conn, K.last_contract(conn, pid)["contract_id"], vb_kind, int(round(perf / 5000) * 5000))
         _save(conn, pid, status="agreed", log=log, rounds=r["rounds"] + 1)
         return "agreed", view(conn, pid)
 
+    aav_offered, aav = aav, worth                           # v61: bonuses count at what they are worth to him
     if aav >= ask:
+        aav = aav_offered
         return close(_say(rng, ["Done. {name} is thrilled. Send the paperwork over.",
                                 "We have a deal. Pleasure doing business.",
                                 "That works. {name} will sign today."], name=name))
     if aav >= fl and aav >= 0.97 * ask:
+        aav = aav_offered
         return close(_say(rng, ["Close enough. Let's get it done.",
                                 "You're splitting hairs and so am I. Deal.",
                                 "Fine. He wants this finished as much as you do."]))

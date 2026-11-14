@@ -257,7 +257,7 @@ const Sim = {
   day(d) {
     this.last = d;
     $("#sc-date").textContent = new Date(d.day + "T12:00:00").toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric", year: "numeric"});
-    $("#sc-scores").innerHTML = d.scores.length ? d.scores.map((g) => `<a class="sc-game${g.mine ? " mine" : ""}" href="#game/${g.game_id}" onclick="Sim.open && !Sim.running && Sim.close()">
+    $("#sc-scores").innerHTML = d.scores.length ? d.scores.map((g) => `<a class="sc-game${g.mine ? " mine" : ""}" href="${g.href || "#game/" + g.game_id}" onclick="Sim.open && !Sim.running && Sim.close()">
         <span class="st">FINAL${g.ot ? " " + g.ot : ""}</span><div class="ln${g.ag > g.hg ? " win" : ""}"><b>${esc(g.away)}</b><b>${g.ag}</b></div>
         <div class="ln${g.hg > g.ag ? " win" : ""}"><b>${esc(g.home)}</b><b>${g.hg}</b></div></a>`).join("") : '<div class="sc-empty">No games today.</div>';
     if (d.mine) { this.lastMine = d.mine; this.box(d.mine, true); }
@@ -275,11 +275,20 @@ const Sim = {
       $("#sc-news").innerHTML = this.news.join("") || "<span>Quiet around the league.</span>";
     }
     if (d.alerts.length) $("#sc-alerts").insertAdjacentHTML("afterbegin", d.alerts.map((a) => `<li><span class="date">${esc(d.day)}</span>${esc(a)}</li>`).join(""));
-    if (d.champion) $("#sc-box").innerHTML = `<div class="sc-champ"><div>STANLEY CUP CHAMPIONS</div><b>${esc(d.champion)}</b>
-      <p><a class="btn primary" href="#champions" onclick="Sim.close()">The champions</a> <a class="btn" href="#awards" onclick="Sim.close()">Awards night</a> <a class="btn" href="#playoffs" onclick="Sim.close()">The bracket</a></p></div>`;
+    if (d.champion) $("#sc-box").innerHTML = `<div class="sc-champ"><div>${esc(d.champion_title || "STANLEY CUP CHAMPIONS")}</div><b>${esc(d.champion)}</b>
+      <p>${d.champion_href ? `<a class="btn primary" href="${d.champion_href}" onclick="Sim.close()">The league</a>` : `<a class="btn primary" href="#champions" onclick="Sim.close()">The champions</a> <a class="btn" href="#awards" onclick="Sim.close()">Awards night</a> <a class="btn" href="#playoffs" onclick="Sim.close()">The bracket</a>`}</p></div>`;
     if (d.press && d.press.length) $("#sc-alerts").insertAdjacentHTML("afterbegin", `<li><a href="#press" onclick="Sim.running || Sim.close()">Press conference waiting: ${esc(d.press.join(", ").replace(/_/g, " "))}</a></li>`);
   },
   box(b, fresh) {
+    if (b.simple) {                                  // v61: a European club's game (the results model keeps no goal-by-goal)
+      const won2 = b.mine_home ? b.home_goals > b.away_goals : b.away_goals > b.home_goals;
+      const tm2 = (ab, g, side) => `<div class="sb-t ${side}${(side === "home") === b.mine_home ? " me" : ""}"><span class="ab">${esc(ab)}</span><span class="g">${g}</span></div>`;
+      $("#sc-box").innerHTML = `<div class="sc-flash${fresh ? " in" : ""}"><div class="sc-label">${fresh ? "YOUR GAME" : "LAST GAME"} · ${won2 ? "WIN" : b.ot ? b.ot + " LOSS" : "LOSS"}</div>
+        <div class="sc-board">${tm2(b.away, b.away_goals, "away")}<div class="sb-mid">FINAL${b.ot ? "<br>" + esc(b.ot) : ""}</div>${tm2(b.home, b.home_goals, "home")}</div>
+        <div class="sc-head">${esc(b.headline)}</div><p class="sc-lede">${esc(b.lede)}</p>
+        <p><a class="btn" href="${b.href}" onclick="Sim.running || Sim.close()">League table</a> <a class="btn" href="#euclub" onclick="Sim.running || Sim.close()">Your club</a></p></div>`;
+      return;
+    }
     const mine = b.mine_home ? b.home : b.away;
     const won = (b.mine_home ? b.home_goals > b.away_goals : b.away_goals > b.home_goals);
     const tm = (ab, g, side) => `<div class="sb-t ${side}${(side === "home") === b.mine_home ? " me" : ""}"><span class="ab">${esc(ab)}</span><span class="g">${g}</span></div>`;

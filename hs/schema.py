@@ -160,6 +160,14 @@ def migrate(conn) -> list:
         conn.execute("ALTER TABLE players ADD COLUMN club_id INTEGER")
         conn.execute("UPDATE players SET club_id=team_id WHERE status IN ('active','injured')")
         done.append("players.club_id")
+    # v60: the two questions the game asks most are "who is on this club" by NHL organisation and by club. Without an
+    # index each one read every player in the world (docs/PERFORMANCE.md). Indexes change no data and no result.
+    ix = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    if "club_id" in cols("players"):
+        for name, col in (("ix_players_team", "team_id"), ("ix_players_club", "club_id")):
+            if name not in ix:
+                conn.execute(f"CREATE INDEX {name} ON players({col})")
+                done.append(name)
     have = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if "draft_rights" not in have:
         conn.execute("CREATE TABLE draft_rights (player_id INTEGER PRIMARY KEY, team_id INTEGER NOT NULL, "

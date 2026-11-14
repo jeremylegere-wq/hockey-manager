@@ -5,11 +5,15 @@
 /* ================================================================ out of work: only the screens that need no club */
 const UNEMPLOYED_VIEWS = new Set(["jobs", "gm", "news", "standings", "stats", "player", "team", "leagueday", "season", "reports", "milestones", "draftlog",
   "rules", "article", "game", "inbox", "playoffs", "champions", "awards", "find", "teaminfo", "txnlog", "transactions", "notes"]);
+const EU_VIEWS = new Set(["dashboard", "roster", "lines", "tactics", "contracts", "trade", "offseason", "euclub",
+  "schedule", "calendar", "lineups", "analytics", "history"]);       // v61: your club's schedule and calendar; the NHL's other screens to look at
 const renderV32 = render;
 render = async function () {
   const view = (location.hash.slice(1) || "dashboard").split("/")[0];
-  if (STATE && STATE.unemployed && !UNEMPLOYED_VIEWS.has(view)) { location.replace("#jobs"); return renderV32(); }
+  const eu = !!(STATE && STATE.eu_club);                  // v61: the European club you run has its own tabs
+  if (STATE && STATE.unemployed && !UNEMPLOYED_VIEWS.has(view) && !(eu && EU_VIEWS.has(view))) { location.replace(eu ? "#dashboard" : "#jobs"); return renderV32(); }
   document.body.classList.toggle("unemployed", !!(STATE && STATE.unemployed));
+  document.body.classList.toggle("euclub", eu);
   return renderV32();
 };
 
@@ -120,7 +124,8 @@ Title.show = (function (prev) {
   return async function (page = "home") {
     if (page !== "new") return prev(page);
     const S0 = this.setup || {};
-    const d = await (await fetch("/api/saves" + (S0.world ? "?world=" + encodeURIComponent(S0.world) : ""))).json();
+    const qs = [S0.world ? "world=" + encodeURIComponent(S0.world) : "", S0.europe && S0.league ? "league=" + S0.league : ""].filter(Boolean).join("&");
+    const d = await (await fetch("/api/saves" + (qs ? "?" + qs : ""))).json();
     const M = d.manager;
     const el = $("#title");
     el.hidden = false; el.className = "titlescreen setup";
@@ -151,7 +156,15 @@ Title.show = (function (prev) {
       body = `<h2>Choose your world</h2><div class="ts-leagues">${worlds}<button class="ts-lg" id="su-import"><b>Import a database...</b><span>From your own export folder</span><i>players, clubs, contracts, staff</i></button></div>
         <h2>Choose your league</h2><div class="ts-leagues">${d.leagues.map((l) => `<button class="ts-lg${l.playable ? "" : " off"}${S.league === l.league_id ? " on" : ""}" data-lg="${l.league_id}"${l.playable ? "" : " disabled"}>
         <b>${esc(l.abbr)}</b><span>${esc(l.name)}</span><i>${l.clubs} clubs${l.playable ? "" : " · coming later"}</i></button>`).join("")}</div>
-        <p class="muted">For now you can run an NHL club. The other leagues play on around you.</p>`;
+        <p class="muted">Run an NHL club, or a club in one of the European leagues played game by game (transfers and loans, no draft, a board to answer to). The other leagues play on around you.</p>`;
+    } else if (S.step === 4 && S.europe) {
+      const lg = d.leagues.find((l) => l.league_id === S.league) || {};
+      const t = (d.eu_teams || []).find((x) => x.team_id === S.eu_club);
+      body = `<h2>Choose your club: ${esc(lg.name || "")}</h2>
+        <div class="ts-club"><div class="ts-divs"><div class="ts-div"><h4>${esc(lg.abbr || "")} · strongest first</h4>${(d.eu_teams || []).map((x) => `<button class="ts-team${x.team_id === S.eu_club ? " on" : ""}" data-euclub="${x.team_id}"><b>${esc(x.abbr)}</b> ${esc(x.name)}</button>`).join("")}</div></div>
+        <div class="ts-detail">${t ? `<div class="dr-big">${esc(t.name)}</div><p class="muted">${esc(lg.name || "")}</p><p>Outlook: <b>${esc(t.outlook)}</b> (squad strength ${t.strength})</p>
+          <h4>Stars</h4><ul>${t.stars.map((s) => `<li>${esc(s.name)} <span class="muted">${esc(s.pos)}</span></li>`).join("")}</ul>
+          <p class="muted small">You run the club as head coach and sporting director. The NHL plays on under its AI, and its jobs stay open to you.</p>` : '<p class="muted">Pick a club to see its outlook.</p>'}</div></div>`;
     } else if (S.step === 4) {
       const byDiv = {};
       d.teams.forEach((t) => (byDiv[`${t.conference} · ${t.division}`] = byDiv[`${t.conference} · ${t.division}`] || []).push(t));
@@ -163,11 +176,12 @@ Title.show = (function (prev) {
           <h4>Stars</h4><ul>${t.stars.map((s) => `<li>${esc(s.name)} <span class="muted">${esc(s.pos)}</span></li>`).join("")}</ul>` : '<p class="muted">Pick a club to see its outlook.</p>'}</div></div>`}`;
     } else {
       const t = d.teams.find((x) => x.abbr === S.team);
-      S.save = S.save || (S.unemployed ? `${S.name || "GM"} career` : `${S.team} career`);
+      const eut = S.europe ? (d.eu_teams || []).find((x) => x.team_id === S.eu_club) : null;
+      S.save = S.save || (eut ? `${eut.name} career` : S.unemployed ? `${S.name || "GM"} career` : `${S.team} career`);
       body = `<h2>Ready</h2><p><b>${esc(S.name || "The GM")}</b> (${esc(d.backgrounds[S.bg].label)}, ${esc(M.templates[S.template] ? M.templates[S.template].label : "custom")}, ${esc(M.reputations[S.reputation].label.toLowerCase())}),
-        ${S.unemployed ? "<b>out of work</b>, looking for a club" : `${esc(M.roles[S.role].toLowerCase())} of the <b>${esc(t ? t.name : S.team)}</b>`}${S.unfireable ? "; cannot be fired" : ""}.</p>
+        ${eut ? `running <b>${esc(eut.name)}</b> in Europe` : S.unemployed ? "<b>out of work</b>, looking for a club" : `${esc(M.roles[S.role].toLowerCase())} of the <b>${esc(t ? t.name : S.team)}</b>`}${S.unfireable ? "; cannot be fired" : ""}.</p>
         <div class="ts-form2"><label>Save name <input id="su-save" value="${esc(S.save)}"></label><label>World seed <input id="su-seed" size="6" value="${S.seed}"></label></div>
-        ${S.unemployed ? "" : `<div class="ts-form2 ts-chal"><label class="chk"><input type="checkbox" id="su-chm"${S.chm ? " checked" : ""}> Challenge mode (no editor, in-season sims of a week at most, you can be fired; for good)</label>
+        ${S.unemployed || S.europe ? "" : `<div class="ts-form2 ts-chal"><label class="chk"><input type="checkbox" id="su-chm"${S.chm ? " checked" : ""}> Challenge mode (no editor, in-season sims of a week at most, you can be fired; for good)</label>
         <label>Challenge <select id="su-chal">${[["", "none"], ["turnaround", "Turnaround: the playoffs within two seasons"], ["rebuild", "Rebuild: a playoff round within four seasons"],
           ["win_now", "Win now: the championship within three seasons"], ["cap_hell", "Cap hell: cap-compliant on opening night, the playoffs within two"],
           ["dynasty", "Dynasty: three championships in eight seasons"], ["expansion", "Expansion: take over a new club and make the playoffs"]].map(([k, l]) =>
@@ -190,8 +204,12 @@ Title.show = (function (prev) {
       if (v < M.r_min || v > M.r_max || (dlt > 0 && used >= M.pool)) return;
       S.ratings[k] = v; S.template = "custom"; again();
     }));
-    el.querySelectorAll("[data-lg]").forEach((b) => (b.onclick = () => { S.league = +b.dataset.lg; again(); }));
-    el.querySelectorAll("[data-world]").forEach((b) => (b.onclick = () => { S.world = b.dataset.world; S.team = null; S.league = null; again(); }));
+    el.querySelectorAll("[data-lg]").forEach((b) => (b.onclick = () => {
+      S.league = +b.dataset.lg; const l = d.leagues.find((x) => x.league_id === S.league);
+      S.europe = !!(l && l.europe); S.eu_club = null; S.save = ""; again();
+    }));
+    el.querySelectorAll("[data-euclub]").forEach((b) => (b.onclick = () => { S.eu_club = +b.dataset.euclub; S.save = ""; again(); }));
+    el.querySelectorAll("[data-world]").forEach((b) => (b.onclick = () => { S.world = b.dataset.world; S.team = null; S.league = null; S.europe = false; S.eu_club = null; again(); }));
     const imp = $("#su-import"); if (imp) imp.onclick = () => ImportDB.open((key) => { S.world = key; S.team = null; S.league = null; again(); });
     el.querySelectorAll("[data-team]").forEach((b) => (b.onclick = () => { S.team = b.dataset.team; again(); }));
     const ue = $("#su-unemp"); if (ue) ue.onchange = () => { keep(); again(); };
@@ -200,15 +218,17 @@ Title.show = (function (prev) {
       keep();
       if (S.step === 1 && !S.name.trim()) return toast("Give your GM a name.", true);
       if (S.step === 3 && !S.league) { const nhl = d.leagues.find((l) => l.playable); S.league = nhl ? nhl.league_id : null; }
-      if (S.step === 4 && !S.team && !S.unemployed) return toast("Pick a club, or start unemployed.", true);
+      if (S.step === 4 && S.europe && !S.eu_club) return toast("Pick a club.", true);
+      if (S.step === 4 && !S.europe && !S.team && !S.unemployed) return toast("Pick a club, or start unemployed.", true);
       if (S.step < 5) { S.step++; return again(); }
       $("#su-next").disabled = true; $("#su-next").textContent = "Building the league...";
       const team = S.team || (d.teams[0] && d.teams[0].abbr);
       try {
         await post("/api/save", {action: "new", team, name: S.save, seed: S.seed, world: S.world || "", profile: {name: S.name, nationality: S.nat, background: S.bg, age: S.age,
-          ratings: S.ratings, template: S.template === "custom" ? null : S.template, reputation: S.reputation, role: S.role, unfireable: S.unfireable && !S.chm, unemployed: S.unemployed,
-          challenge_mode: !!S.chm && !S.unemployed, challenge: S.unemployed ? null : (S.chal || null)}});
-        this.setup = null; el.hidden = true; location.hash = S.unemployed ? "#jobs" : "#dashboard"; await refresh();
+          ratings: S.ratings, template: S.template === "custom" ? null : S.template, reputation: S.reputation, role: S.role, unfireable: S.unfireable && !S.chm, unemployed: S.unemployed || !!S.europe,
+          eu_club: S.europe ? S.eu_club : null,
+          challenge_mode: !!S.chm && !S.unemployed && !S.europe, challenge: S.unemployed || S.europe ? null : (S.chal || null)}});
+        this.setup = null; el.hidden = true; location.hash = S.europe ? "#euclub" : S.unemployed ? "#jobs" : "#dashboard"; await refresh();
       } catch (err) { toast(err.message, true); $("#su-next").disabled = false; $("#su-next").textContent = "Start career"; }
     };
   };
@@ -218,7 +238,7 @@ Title.show = (function (prev) {
 const updateHeaderV32 = updateHeader;
 updateHeader = function () {
   updateHeaderV32();
-  if (STATE && STATE.unemployed) { $("#sh-crest").innerHTML = ""; $("#tb-team").textContent = "Out of work"; $("#sh-record").textContent = `reputation ${Math.round(STATE.reputation)}`; }
+  if (STATE && STATE.unemployed) { $("#sh-crest").innerHTML = ""; $("#tb-team").textContent = "Out of work"; $("#sh-record").textContent = `${typeof tr === "function" ? tr("reputation") : "reputation"} ${Math.round(STATE.reputation)}`; }
 };
 (() => {
   const find = (name) => MENUS.find((m) => m[0] === name)[1];

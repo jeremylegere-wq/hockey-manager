@@ -198,6 +198,34 @@ class Saves:
         finally:
             c.close()
 
+    def eu_teams(self, league_id, world=None):
+        """v61: the clubs of a European league you can start a career with (strongest first)."""
+        tpl = self.world_path(world)
+        if not tpl or not tpl.exists():
+            return []
+        c = sqlite3.connect(f"file:{tpl}?mode=ro", uri=True)
+        try:
+            from ..game.roster import value_from_attrs
+            from ..game import europe as EU
+            c.row_factory = sqlite3.Row
+            if int(league_id) not in EU.european_leagues(c):
+                return []
+            out = []
+            for r in c.execute("SELECT team_id, abbr, name FROM teams WHERE league_id=? ORDER BY name", (int(league_id),)):
+                players = sorted(((value_from_attrs(dict(p), p["position"]), p["n"], p["position"]) for p in c.execute(
+                    "SELECT p.first_name||' '||p.last_name n, p.position, a.* FROM players p JOIN player_attributes a USING (player_id) "
+                    "WHERE p.club_id=? AND p.team_id IS NULL AND p.status IN ('active','injured')", (r["team_id"],))), reverse=True)
+                strength = sum(v for v, _, _ in players[:18]) / max(1, min(18, len(players)))
+                out.append(dict(team_id=r["team_id"], abbr=r["abbr"], name=r["name"], strength=round(strength, 1),
+                                stars=[dict(name=n, pos=pos) for _, n, pos in players[:3]]))
+            out.sort(key=lambda x: -x["strength"])
+            n = len(out)
+            for i, x in enumerate(out):
+                x["outlook"] = "title contender" if i < max(2, n // 5) else "playoff club" if i < n * 0.6 else "underdog"
+            return out
+        finally:
+            c.close()
+
     def leagues(self, world=None):
         """Leagues in the template world (only the top league can be managed for now)."""
         tpl = self.world_path(world)
@@ -205,7 +233,15 @@ class Saves:
             return []
         c = sqlite3.connect(f"file:{tpl}?mode=ro", uri=True)
         try:
-            return [dict(league_id=r[0], name=r[1], abbr=r[2], level=r[3], clubs=r[4], playable=r[3] in (1, None))
+            from ..game import europe as EU
+            c.row_factory = sqlite3.Row
+            try:
+                eu = set(EU.european_leagues(c))
+            except sqlite3.Error:
+                eu = set()
+            c.row_factory = None
+            return [dict(league_id=r[0], name=r[1], abbr=r[2], level=r[3], clubs=r[4], playable=r[3] in (1, None) or r[0] in eu,
+                         europe=r[0] in eu)
                     for r in c.execute("SELECT l.league_id, l.name, l.abbr, l.level, COUNT(t.team_id) FROM leagues l LEFT JOIN teams t "
                                        "USING (league_id) GROUP BY l.league_id ORDER BY COALESCE(l.level, 1), l.name")]
         finally:
@@ -248,13 +284,21 @@ class Saves:
                         from ..game.state import get_state
                         challenge.start(c, profile["challenge"], get_state(c)[0])
                         c.commit()
-                    if profile.get("unemployed"):
+                    if profile.get("unemployed") or profile.get("eu_club"):
                         if profile.get("role") == "gm_coach":
                             x = gm._extra(c)
                             x["role"] = "gm_coach"
                             gm._save_extra(c, x)
                         from ..game.state import get_state
-                        gm.start_unemployed(c, get_state(c)[0])
+                        if not profile.get("eu_club"):
+                            gm.start_unemployed(c, get_state(c)[0])
+                        else:
+                            c.execute("DELETE FROM gm_career")
+                        c.commit()
+                    if profile.get("eu_club"):                  # v61: a career that starts at a European club
+                        from ..game import europe as EU
+                        from ..game.state import get_state
+                        EU.start(c, int(profile["eu_club"]), EU.rewind_to_opening(c, int(profile["eu_club"])))
                         c.commit()
                 finally:
                     c.close()

@@ -54,7 +54,7 @@ Credits.open = function (about = false) {
   if (about) return creditsV39(true);
   Modal.open(`<div class="win-title">Credits</div>
     <div class="credits">
-      <div class="cr-logo">HOCKEY <span>MANAGER</span><i>version ${esc(APP.version || "")}</i></div>
+      <div class="cr-logo">HOCKEY <span>MANAGER</span><i>version ${esc(APP.version || "")}${APP.build ? " · build " + esc(APP.build) : ""}</i></div>
       <h4>Design / Architecture / Lead developer</h4><p>Jeremy Legere</p>
       <h4>Quality assurance / Testing / Code review</h4><p>Jeremy Legere</p>
       <h4>AI collaboration and engineering assistance</h4><ul>
@@ -69,7 +69,7 @@ Credits.open = function (about = false) {
         <li>pywebview (the desktop window; BSD licence), with WebView2, WebKit or Qt WebEngine underneath</li></ul>
       <h4>Data</h4><p>The world that ships with the game is fictional: every club, town and player is invented, so nothing in it is anyone's mark or likeness. Build your own league from a spreadsheet (docs/BUILD_YOUR_OWN.md), edit any player or club in the editor, or import your own export of a community database for personal use (File &gt; Import Database). Club crests and player portraits are drawn by the game.</p>
       <h4>Names</h4><p>If you load real league, club or player names from your own data, that stays on your computer: it is for your personal use and must not be shared or published.</p>
-      <h4>Found a bug?</h4><p>Help &gt; Report a bug, or write to <a href="mailto:jeremy.legere@gmail.com?subject=Hockey%20Manager%20bug%20report">jeremy.legere@gmail.com</a>.</p>
+      <h4>Found a bug?</h4><p>Help &gt; Report a bug, or open an issue on <a href="#" onclick="BugReport.go(BugReport.issues);return false">the game's GitHub issues page</a>.</p>
       <p class="muted small">A personal, open-source project. Thanks for playing.</p>
     </div>
     <div class="win-buttons"><button class="primary" onclick="Modal.close()">Close</button></div>`, "win");
@@ -240,29 +240,40 @@ const FR_ATTR = {"Find a player or club": "Trouver un joueur ou un club", "Searc
 const Lang = {
   get() { try { return localStorage.getItem("hmLang") || "en"; } catch (e) { return "en"; } },
   set(v) { try { localStorage.setItem("hmLang", v); } catch (e) { /* private window */ } location.reload(); },
+  // v61: the dictionaries of the language in use (French: FR, FR_RE, FR_ATTR; Russian: RU, RU_RE, RU_ATTR in ru.js)
+  tables() {
+    const l = this.get();
+    if (l === "fr") return [FR, FR_RE, FR_ATTR];
+    if (l === "ru" && typeof RU !== "undefined") return [RU, RU_RE, RU_ATTR];
+    return null;
+  },
   apply(root) {
-    if (this.get() !== "fr") return;
+    const T = this.tables();
+    if (!T) return;
+    const [D, RE, AT] = T;
     const walk = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT);
     const todo = [];
     while (walk.nextNode()) todo.push(walk.currentNode);
     for (const n of todo) {
       const t = n.nodeValue, k = t.trim();
-      if (!k || !n.parentElement || n.parentElement.closest("script,style,textarea,pre")) continue;
-      if (FR[k]) { n.nodeValue = t.replace(k, FR[k]); continue; }
-      for (const [re, to] of FR_RE) if (re.test(k)) { n.nodeValue = t.replace(k, k.replace(re, to)); break; }
+      // (v61: club and player names are never words to translate: the Dallas Stars stay the Stars)
+      if (!k || !n.parentElement || n.parentElement.closest("script,style,textarea,pre,a[href^='#team/'],a[href^='#player/'],[data-noi18n]")) continue;
+      if (D[k]) { n.nodeValue = t.replace(k, D[k]); continue; }
+      for (const [re, to] of RE) if (re.test(k)) { n.nodeValue = t.replace(k, k.replace(re, to)); break; }
     }
     (root || document).querySelectorAll && (root || document).querySelectorAll("[placeholder],[title]").forEach((el) => {
-      if (FR_ATTR[el.placeholder]) el.placeholder = FR_ATTR[el.placeholder];
-      if (FR[el.title]) el.title = FR[el.title];
+      if (AT[el.placeholder]) el.placeholder = AT[el.placeholder];
+      if (D[el.title]) el.title = D[el.title];
     });
   },
 };
 (function langMenu() {
   const file = MENUS[0][1];
   const at = file.findIndex((x) => Array.isArray(x) && x[0] === "Console");
-  file.splice(at + 1, 0, ["Français (Québec)", () => Lang.set(Lang.get() === "fr" ? "en" : "fr"), () => Lang.get() === "fr"]);
-  if (Lang.get() === "fr") {
-    document.documentElement.lang = "fr-CA";
+  file.splice(at + 1, 0, ["Français (Québec)", () => Lang.set(Lang.get() === "fr" ? "en" : "fr"), () => Lang.get() === "fr"],
+    ["Русский", () => Lang.set(Lang.get() === "ru" ? "en" : "ru"), () => Lang.get() === "ru"]);       // v61: Russian (ru.js)
+  if (Lang.get() !== "en") {
+    document.documentElement.lang = Lang.get() === "ru" ? "ru" : "fr-CA";
     let pending = false;
     new MutationObserver(() => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; Lang.apply(document.body); }); })
       .observe(document.body, {childList: true, subtree: true, characterData: false});
@@ -275,16 +286,16 @@ const Lang = {
 
 /* ================================================================ report a bug (v58): the details a report needs, ready to send */
 const BugReport = {
-  email: "jeremy.legere@gmail.com",
+  issues: "https://github.com/jeremylegere-wq/hockey-manager/issues",
   details() {
     const st = (typeof STATE !== "undefined" && STATE && STATE.loaded) ? `${STATE.team || ""} ${STATE.season || ""} ${STATE.date || ""}` : "no career loaded";
-    return [`Hockey Manager version: ${APP.version || "?"}`, `Window: ${APP.desktop ? "desktop window" : "browser"}`,
+    return [`Hockey Manager version: ${APP.version || "?"}${APP.build ? " (build " + APP.build + ")" : ""}`, `Window: ${APP.desktop ? "desktop window" : "browser"}`,
             `System: ${navigator.platform || "?"} / ${navigator.userAgent}`, `Screen: ${location.hash || "#"}`, `Career: ${st}`,
             "", "What I did:", "", "What I expected:", "", "What happened instead:", ""].join("\n");
   },
   open() {
     const body = this.details();
-    const href = `mailto:${this.email}?subject=${encodeURIComponent("Hockey Manager bug report (v" + (APP.version || "?") + ")")}&body=${encodeURIComponent(body)}`;
+    const href = `${this.issues}/new?title=${encodeURIComponent("Bug report (v" + (APP.version || "?") + "): ")}&body=${encodeURIComponent(body)}`;
     Modal.open(`<div class="win-title">Report a bug</div><div class="pad about">
       <p>Thank you: reports are how this gets better. The more of this you can send, the faster it gets fixed:</p>
       <ol class="small"><li>What you did, what you expected, what happened instead (the details below are filled in for you).</li>
@@ -292,9 +303,12 @@ const BugReport = {
         <li>If it is about a career: the save file from the <b>saves</b> folder (a plain <code>.db</code> file; it holds only that career's data). With it a bug can usually be replayed exactly.</li>
         <li>If you see "Traceback" in the terminal window the game was started from, paste it in.</li></ol>
       <textarea id="br-text" class="br-text" rows="11" readonly style="width:100%;font-family:monospace;font-size:12px">${esc(body)}</textarea>
-      <p class="muted small">Send to <a href="${href}">${this.email}</a> (the button opens your mail program), or copy the text and email it yourself. If the game is on GitHub, an issue there works too.</p>
-    </div><div class="win-buttons"><button class="primary" onclick="window.location.href=${esc(JSON.stringify(href))}">Open email</button>
+      <p class="muted small">Report it on the game's GitHub issues page: the button opens a new issue in your browser with these details filled in (a free GitHub account is needed). Attach the save file or screenshot there by dragging it into the issue.</p>
+    </div><div class="win-buttons"><button class="primary" onclick="BugReport.go(${esc(JSON.stringify(href))})">Open GitHub issue</button>
       <button onclick="const t=$('#br-text');t.select();document.execCommand('copy');toast('Copied')">Copy details</button>
       <button onclick="Modal.close()">Close</button></div>`, "win");
+  },
+  async go(href) {                                      // the desktop window hands the page to your browser
+    try { await post("/api/open", {url: href}); } catch (e) { window.open(href, "_blank"); }
   },
 };

@@ -8,11 +8,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "0.59"
+VERSION = "0.61"
+BUILD = "61.6"           # each build sent out: Help > About and bug reports say which one is running
 
 DEFAULTS = {
     "ui_scale": 100,            # percent: the whole interface (resolution scaling)
     "units": "metric",          # metric | imperial: heights and weights
+    "currency": "USD",          # v61: the display currency (docs/CURRENCY.md); amounts are kept in USD or EUR
     "confirm_phase": True,      # ask before leaving an offseason phase with decisions left
     "player_popups": True,      # the small player card when you hover a name
     "sim_pace": 0.6,            # sim centre pace in seconds a day (0 = instant)
@@ -30,7 +32,8 @@ DEFAULTS = {
     "stop_injury": False,       # one of your players is hurt
     "stop_room": False,         # trouble in the dressing room
 }
-CHOICES = {"units": ("metric", "imperial")}
+CHOICES = {"units": ("metric", "imperial"),
+           "currency": ("USD", "CAD", "EUR", "GBP", "SEK", "NOK", "DKK", "CHF", "CZK", "PLN", "RUB", "AUD", "JPY")}
 RANGES = {"ui_scale": (80, 150), "sim_pace": (0.0, 5.0), "draft_clock": (20, 600), "backups": (0, 10)}
 
 

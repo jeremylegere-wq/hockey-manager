@@ -9,6 +9,7 @@ Backgrounds give a small start, not a different game:
 """
 from __future__ import annotations
 
+import datetime
 import json
 
 from .state import get_state, user_team
@@ -303,6 +304,8 @@ def lose_job(conn, day, how="fired"):
         _save_extra(conn, x)
     conn.execute("INSERT OR REPLACE INTO pack_info (key, value) VALUES ('gm_status', ?)", (how,))
     conn.execute("INSERT OR REPLACE INTO pack_info (key, value) VALUES ('last_team', ?)", (str(t),))
+    if how == "fired":                                   # v61: the club that fired you will not hire you back for a year
+        conn.execute("INSERT OR REPLACE INTO pack_info (key, value) VALUES ('fired_from', ?)", (f"{t}:{day}",))
     conn.execute("UPDATE manager SET team_id=NULL WHERE id=1")
     if how == "fired":
         change_reputation(conn, -8, "fired")
@@ -334,6 +337,21 @@ def start_unemployed(conn, day, n=3):
                   "more jobs open as GMs are fired around the league. Continue plays on while you wait.")
 
 
+def fired_from(conn, day=None):
+    """The club that fired you, while it still will not have you back (a year), else None."""
+    r = conn.execute("SELECT value FROM pack_info WHERE key='fired_from'").fetchone()
+    if not r:
+        return None
+    t, since = r[0].split(":", 1)
+    day = day or get_state(conn)[0]
+    try:
+        if (datetime.date.fromisoformat(day) - datetime.date.fromisoformat(since)).days > 365:
+            return None
+    except ValueError:
+        return None
+    return int(t)
+
+
 def club_demand(conn, t, ranks=None):
     """The reputation a club wants in its GM: the better the club, the more it expects."""
     from . import org
@@ -349,7 +367,10 @@ def job_market(conn):
     rep = settings(conn)["reputation"]
     ranks = org.projected_ranks(conn)
     out = []
+    burned = fired_from(conn)
     for t in org.vacancies(conn):
+        if t == burned:                                  # v61: not the club that just fired you
+            continue
         o = conn.execute("SELECT * FROM owners WHERE team_id=?", (t,)).fetchone() if conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name='owners'").fetchone() else None
         nm = conn.execute("SELECT name, nickname, abbr FROM teams WHERE team_id=?", (t,)).fetchone()
@@ -376,6 +397,8 @@ def apply_job(conn, t, day):
         raise ValueError("You already run a club. (You can see the job market, but you apply once you are out of work.)")
     if t not in org.vacancies(conn):
         raise ValueError("That club is not looking for a GM.")
+    if t == fired_from(conn, day):
+        raise ValueError(f"{team_abbr(conn, t)} fired you less than a year ago. They will not take you back.")
     key = f"job_apply_{t}"
     last = conn.execute("SELECT value FROM pack_info WHERE key=?", (key,)).fetchone()
     if last and last[0][:7] == day[:7]:

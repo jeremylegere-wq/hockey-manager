@@ -46,6 +46,10 @@ HL, HW, NET, BLUE, CORNER = 100.0, 42.5, 89.0, 25.0, 28.0
 BENCH_Y, BOX_Y = 42.0, -42.0
 BENCH_X, BOX_X = (-21.0, 21.0), (-8.0, 8.0)
 REACH = 3.4
+ONSIDE = 1.0          # a skater (his centre) this far past the blue line has both skates over it
+KEEP_IN = 4.5         # with the puck in the zone, the man with it stays this far inside the line (his blade with it)
+PUCK_R = 0.125        # the puck is three inches across
+TAG = 3.5             # with the puck outside, team-mates stay this far outside the line until it comes in
 SK, GLIDE, PASS, SHOOT, CHECK, BLOCK, CELEB, GSET, GSAVE, GCOVER, DRAW, DOWN, BOXED, BENCH = range(14)
 
 
@@ -143,7 +147,8 @@ class Game:
         self.roles_at = [-9.0, -9.0]
         self.delay = [False, False]
         self.shootout = list(shootout)
-        self.check = dict(offspot=0, snap=0, missing=0, late=0, rushed=0)
+        self.check = dict(offspot=0, snap=0, missing=0, late=0, rushed=0, offside=0)
+        self.inzone = [False, False]
         self.ei = 0
         self.late = []
         self.held = [None, None]
@@ -261,7 +266,7 @@ class Game:
                     if any(q is p for q, _ in self.off):
                         self.off = [(q, u) for q, u in self.off if q is not p]
                     else:
-                        bx, by = (BOX_X[side], -HW + 2.0) if (p.state == BOXED or p.pid in was) else self.door(side, i)
+                        bx, by = (BOX_X[side], -HW + 2.0) if (p.state == BOXED or p.pid in was) else self.door(side, p.k)
                         p.put(bx, by, -math.pi / 2 if by > 0 else math.pi / 2)
                 p.state, p.ovr, p.key, p.role = SK, None, False, None
                 cur.append(p)
@@ -302,9 +307,11 @@ class Game:
         q = out[0]
         self.sk[side].remove(q)
         q.ovr, q.key = None, False
+        leaving = any(a is S for a, _ in self.off)               # still on his way off: he turns round where he is
         self.off = [(a, u) for a, u in self.off if a is not S]
         self.off.append((q, self.pt + 5.0))
-        S.put(*self.door(side, 1), -math.pi / 2)
+        if not leaving:
+            S.put(*self.door(side, 1), -math.pi / 2)
         S.state, S.slot, S.role = SK, q.slot, None
         self.sk[side].append(S)
         self.roles_at[side] = -9.0
@@ -371,9 +378,72 @@ class Game:
                 p.tx += (x - p.tx) * a
                 p.ty += (y - p.ty) * a
                 p.sprint = q[2] if len(q) > 2 else 1.0
+            if has:
+                self.onside(side)
         for p, _ in self.off:
             bx, by = self.door(p.side, p.k)
             p.tx, p.ty, p.sprint = bx, by, 1.0
+
+    def waiting_onside(self):
+        """While the side with the puck has it outside its attacking zone: each of its skaters, how deep he is, and
+        whether he has the puck (or the pass coming to him)."""
+        pk = self.pk
+        side = self.poss if pk.mode != "loose" else self.loose_for
+        if side is None or self.zone(side):
+            return []
+        c = pk.carrier if pk.mode == "carry" else pk.to
+        return [(p, side, self.rel(side, p.x, p.y)[0], p is c) for p in self.sk[side]]
+
+    def stop_at_line(self, hold):
+        """The blue line as the skaters see it while the puck is outside: a man who is onside stops at the line
+        rather than drift over it, one who is still in only comes out (a bump never pushes him deeper), and the
+        carrier does not take the puck in until everyone is out."""
+        if not hold:
+            return
+        deep = any(not mine and u0 > BLUE + ONSIDE - 0.6 for _, _, u0, mine in hold)
+        for p, side, u0, mine in hold:
+            if mine and not deep:
+                continue
+            lim = max(u0, BLUE - 3.2 if mine else BLUE - 0.6)     # the carrier's blade (and the puck) stays out
+            u, v = self.rel(side, p.x, p.y)
+            if u > lim:
+                p.x, p.y = self.world(side, lim, v)
+                vu, vv = self.rel(side, p.vx, p.vy)
+                if vu > 0:
+                    p.vx, p.vy = self.world(side, 0.0, vv)
+
+    def onside(self, side):
+        """The offside rule for the side with the puck (issue #24). The engine does not record offsides, so the replay
+        never draws one: with the puck in the zone, the man with it (or the pass going to him) keeps it in at the line;
+        with the puck outside, nobody goes in ahead of it, and the carrier waits at the line until team-mates who are
+        still deep have come out (tagged up)."""
+        pk, sk = self.pk, self.sk[side]
+        c = pk.carrier if pk.mode == "carry" else (pk.to if pk.mode == "pass" else None)
+        if self.zone(side):
+            if c is not None and c in sk:
+                u, v = self.rel(side, c.tx, c.ty)
+                if u < BLUE + KEEP_IN:
+                    c.tx, c.ty = self.world(side, BLUE + KEEP_IN, v)
+            return
+        deep = False
+        for p in sk:
+            if p is c:
+                continue
+            u, v = self.rel(side, p.tx, p.ty)
+            vu = self.rel(side, p.vx, p.vy)[0]
+            lim = BLUE - TAG - (vu * vu / (2.0 * p.acc) if vu > 0 else 0.0)    # room to stop before the line
+            if u > lim:
+                p.tx, p.ty = self.world(side, lim, v)
+                if self.rel(side, p.x, p.y)[0] > BLUE - 1.0:
+                    p.sprint = max(p.sprint, 1.1)
+            if self.rel(side, p.x, p.y)[0] > BLUE + ONSIDE - 0.6:
+                deep = True
+        if c is not None and c in sk:
+            u, v = self.rel(side, c.tx, c.ty)
+            vu = self.rel(side, c.vx, c.vy)[0]
+            lim = BLUE - TAG - (vu * vu / (2.0 * c.acc) if vu > 0 else 0.0) if (deep or pk.mode == "pass") else None
+            if lim is not None and u > lim:
+                c.tx, c.ty = self.world(side, lim, v)
 
     def off_shape(self, side):
         pk, sk = self.pk, self.sk[side]
@@ -676,6 +746,7 @@ class Game:
     def tick(self):
         self.shapes()
         self.goalies()
+        hold = self.waiting_onside() if self.mode == "play" else []
         for side in (0, 1):
             for p in self.sk[side]:
                 self.move(p)
@@ -689,13 +760,41 @@ class Game:
         self.off = keep
         if self.mode == "play":
             self.separate()
+            self.stop_at_line(hold)
         self.move_puck()
+        self.offside_check()
         self.pt += DT
         if self.run:
             self.t += DT
         if self.mode == "play" and int(round(self.pt / DT)) % 3 == 0 and self.needs_change():
             self.apply_units(False, self.plan_time())
         self.record()
+
+    def zone(self, side):
+        """Is the puck in `side`'s attacking zone? The blue line (a foot wide) belongs to the zone the puck is in: it
+        is in only once it has completely crossed the line, and out only once it has completely crossed it back."""
+        pu = self.rel(side, self.pk.x, self.pk.y)[0]
+        if pu > BLUE + 0.5 + PUCK_R:
+            return True
+        if pu < BLUE - 0.5 - PUCK_R:
+            return False
+        return self.inzone[side]
+
+    def offside_check(self):
+        """Counts zone entries the replay draws offside: the puck coming into a side's attacking zone while it has
+        the puck (carried, passed or dumped in) and a team-mate other than the carrier is already all the way in."""
+        pk = self.pk
+        for side in (0, 1):
+            was, now = self.inzone[side], self.zone(side)
+            self.inzone[side] = now
+            if self.mode != "play" or was or not now:
+                continue
+            own = pk.carrier if pk.mode == "carry" else (pk.last if pk.mode in ("pass", "loose") else None)
+            if own is None or own.side != side or (pk.mode == "loose" and self.loose_for != side):
+                continue
+            c = pk.carrier if pk.mode == "carry" else pk.to
+            if any(p is not c and self.rel(side, p.x, p.y)[0] > BLUE + ONSIDE for p in self.sk[side]):
+                self.check["offside"] += 1
 
     def record(self):
         pk = self.pk
@@ -735,6 +834,24 @@ class Game:
 
     def pass_to(self, a, b, flight=None, speed=60.0):
         pk = self.pk
+        if b not in self.sk[a.side]:                             # he went off for a change while the pass was coming:
+            ms = [m for m in self.sk[a.side] if m is not a]       # it goes to the nearest man still on the ice
+            if not ms:
+                yield
+                return
+            b = min(ms, key=lambda m: self.dist(m, b))
+            flight = None
+        if self.mode == "play":                                  # no pass that makes an offside (issue #24): into the
+            t0, tmp = self.pt, b.ovr is None                      # zone only once everyone is onside; in the zone only
+            while self.pt - t0 < 2.6 and pk.carrier is a and self.offside_risk(a, b):     # to a man inside the line
+                if tmp and self.zone(a.side):
+                    v = self.rel(a.side, b.x, b.y)[1]
+                    b.ovr = (*self.world(a.side, BLUE + 7.0, v), 1.1)
+                yield
+            if tmp:
+                b.ovr = None
+            if pk.carrier is not a:
+                return
         d = self.dist(a, b)
         fl = _clamp(d / speed, 0.3, 2.4) if flight is None else max(0.2, flight)
         self.setst(a, PASS, 0.4)
@@ -753,6 +870,15 @@ class Game:
         if tmp:
             b.ovr = None
         self.give(b)
+
+    def offside_risk(self, a, b):
+        """Would a pass from a to b now draw an offside? With the puck in the zone: if b is outside the line (the puck
+        would leave and come straight back). With it outside: if b is inside the line (he would be in ahead of it);
+        a pass that stays outside is fine, and the onside rule keeps the carrier out until his team-mates are."""
+        bu = self.rel(a.side, b.x, b.y)[0]
+        if self.zone(a.side):
+            return bu < BLUE + 1.5
+        return bu > BLUE - 1.0
 
     def loose(self, x, y, speed, side=None):
         """Send the puck sliding towards (x, y); it slows on the ice and comes off the boards."""
@@ -935,6 +1061,11 @@ class Game:
         if sh is not None:
             eta = math.hypot(sh.x - e.x, sh.y - e.y) / (sh.top * 0.9) + 0.9
         c = pk.carrier
+        entry = 0.0
+        if pu < BLUE + 0.5 and su > BLUE:                       # the puck has to be brought in first (onside)
+            entry = max(0.0, BLUE + 2.0 - pu) / 30.0 + 0.4
+            if sh is not None:
+                entry += max(0.0, su - BLUE) / (sh.top * 0.95) + 0.45
         if c is not None and c.side == side and sh is not None and sh in self.sk[side] and pu > BLUE - 30:
             seq = [self.pl[a] for a in reversed(e.assists) if a in self.pl and self.pl[a] in self.sk[side] and self.pl[a] is not sh] \
                 if e.type == "goal" else []
@@ -942,9 +1073,9 @@ class Game:
             if c in seq:
                 seq = seq[seq.index(c) + 1:]
             fin = sum(self.pass_time(a, b) for a, b in zip([c] + seq, seq)) + 0.45
-            return max(fin, eta) + pickup
+            return max(fin, eta, entry) + pickup
         chain = len([a for a in e.assists if a in self.pl]) if e.type == "goal" else 1
-        return max(travel + 1.0 + 0.75 * chain, eta) + pickup
+        return max(travel + 1.0 + 0.75 * chain, eta, entry) + pickup
 
     def possess(self, side, until, lose, e=None):
         """`side` keeps the puck until the clock reads `until` (re-read from e if given), then loses it if `lose`."""
@@ -1092,6 +1223,9 @@ class Game:
         if e.type == "block" and e.opp in self.pl and self.pl[e.opp] in self.sk[1 - side]:
             blocker = self.pl[e.opp]
             blocker.key = True
+        if c is not None and c is not S and c.side == side:
+            yield from self.enter(c, e)
+            c = pk.carrier if pk.carrier in self.sk[side] else c
         seq = self.chain(e, S, c)
         T = e.t
         k = len(seq)
@@ -1118,6 +1252,20 @@ class Game:
             self.check["offspot"] += 1
         S.ovr, S.key = None, False
         yield from self.shoot(S, e, blocker)
+
+    def enter(self, c, e):
+        """Before the last passes: if the puck is still outside the zone, the carrier brings it in himself, at speed,
+        so the shooter (who waits onside) can follow it in. Nobody stands still with it in his own end."""
+        side = c.side
+        pu, pv = self.rel(side, c.x, c.y)
+        if pu > BLUE + 0.5 or self.rel(side, e.x, e.y)[0] < BLUE:
+            return
+        lane = _clamp(pv * 0.8, -26.0, 26.0) if abs(pv) > 6 else (14.0 if pv >= 0 else -14.0)
+        tries = 0
+        while self.pk.carrier is c and self.rel(side, self.pk.x, self.pk.y)[0] <= BLUE + 1.5 and tries < 4:
+            yield from self.carry(c, BLUE + 9.0, lane, 3.0, 1.15,
+                                  stop=lambda: self.rel(side, self.pk.x, self.pk.y)[0] > BLUE + 1.5)
+            tries += 1
 
     def shoot(self, S, e, blocker=None):
         pk, rng = self.pk, self.rng

@@ -119,7 +119,7 @@ them), write a pack.
 
 A pack of **invented** clubs and players can be shared freely: set `redistributable: true`, `contains_real_names: false` and a
 licence in `manifest.json`, and zip the folder. Others unzip it into `packs/`, run `hs.ingest`, and play. To have yours listed,
-open a "Share a league" issue or email jeremy.legere@gmail.com.
+open a "Share a league" issue on the [GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues).
 
 Do not share packs with real players, clubs, logos or anyone else's data. Real names and marks generally need a licence from
 the leagues and players' associations; see `THIRD_PARTY.md`.
@@ -129,4 +129,4 @@ the leagues and players' associations; see `THIRD_PARTY.md`.
 * `hs.datapack` prints every problem with its file and row. Fix them all, then run it again.
 * "No template world to start from": build one (`python3 -m hs.tools.make_mock_world`) or put a world in `worlds/`.
 * Scoring too high or too low in your world: see the tips in section 2 and [SIM_CALIBRATION.md](SIM_CALIBRATION.md); the formulas are in [ALGORITHMS.md](ALGORITHMS.md).
-* Anything else: [CONTRIBUTING.md](../CONTRIBUTING.md) says what to send. jeremy.legere@gmail.com.
+* Anything else: [CONTRIBUTING.md](../CONTRIBUTING.md) says what to send, on the [GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues).

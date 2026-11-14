@@ -397,6 +397,8 @@ def take_job(conn, t, day):
     if t not in vacancies(conn):
         raise ValueError("That club has no vacancy (clubs that changed GM this offseason are listed by `jobs`).")
     conn.execute("UPDATE manager SET team_id=? WHERE id=1", (t,))
+    from . import europe as EU                            # v61: an NHL job ends a European one
+    EU.leave(conn)
     conn.execute("UPDATE board SET gm_name='You', confidence=60, warnings=0, vacancy=0 WHERE team_id=?", (t,))
     conn.execute("DELETE FROM pack_info WHERE key='gm_status'")
     emit(conn, "GM_HIRED", day, f"{team_abbr(conn, t)} hire you as general manager", team_id=t, importance=3)

@@ -266,3 +266,17 @@ conditional pick is worth nearly the higher pick, which is why sellers like them
 ### Not yet
 Pick-swap rights and conditions on players (games played, re-signing), three-way deals of your own with AI clubs countering, AI clubs countering your proposals with
 changes (they answer yes or no, and `ask` gives their price).
+
+## The needs tab (v61)
+
+With a club picked, the trade screen ends with **Needs: <club> and you**, drawn from the same picture its trade AI
+uses:
+
+* **Need by position** (0-100, the v39 need score: depth against a playoff club's, prospects, injuries) for both clubs,
+  with "deep: can spare one" where a club carries more regulars than it plays and needs none.
+* **Situation**: posture (contender, middle, seller) and league rank, cap room now and next season, and what a club
+  in that posture wants.
+* **Your players who would fill their holes**: at a position where their need is 15 or more, and good enough to play
+  in their top three units.
+* **Their players who could be had**: "hard to get" below 60, labelled available (under 15), possible (under 35) or
+  hard. Players at your most-needed position, or any position where your need is 35 or more, are marked.

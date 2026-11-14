@@ -242,8 +242,10 @@ def set_pref(conn, t, key, value):
 
 
 # ---------------------------------------------------------------- fit and execution
-def _skater_attrs(conn, t):
-    rows = conn.execute("SELECT a.* FROM players p JOIN player_attributes a USING (player_id) WHERE p.team_id=? AND "
+def _skater_attrs(conn, t, club=False):
+    from .state import member_sql
+    where = "p.club_id=? AND p.team_id IS NULL" if club else member_sql(conn, t, 'p.')
+    rows = conn.execute(f"SELECT a.* FROM players p JOIN player_attributes a USING (player_id) WHERE {where} AND "
                         "p.status IN ('active','injured') AND p.position<>'G'", (t,)).fetchall()
     return sorted(rows, key=lambda r: -R.player_value(conn, r["player_id"]))[:18]
 
@@ -285,6 +287,23 @@ def _league_fit(conn):
     for t in teams:
         own = statistics.fmean(z[t].values()) if z[t] else 0.0
         out[t] = {s: max(-1.5, min(1.5, v - own)) for s, v in z[t].items()}
+    eu = conn.execute("SELECT value FROM pack_info WHERE key='eu_club'").fetchone()
+    if eu and eu[0]:                                      # v61: the European club you run, against its own league
+        me = int(eu[0])
+        clubs = [r[0] for r in conn.execute("SELECT team_id FROM teams WHERE league_id=(SELECT league_id FROM teams WHERE team_id=?)", (me,))]
+        raw = {}
+        for t in clubs:
+            rows = _skater_attrs(conn, t, club=True)
+            if rows:
+                mean = {a: statistics.fmean((r[a] or 10) for r in rows) for a in attrs}
+                raw[t] = {s: statistics.fmean(mean[a] for a in v) for s, v in sets.items()}
+        if me in raw and len(raw) > 2:
+            zz = {}
+            for s in sets:
+                xs = [raw[t][s] for t in raw]
+                zz[s] = (raw[me][s] - statistics.fmean(xs)) / (statistics.pstdev(xs) or 1.0)
+            own = statistics.fmean(zz.values())
+            out[me] = {s: max(-1.5, min(1.5, v - own)) for s, v in zz.items()}
     _FIT_CACHE.clear()
     _FIT_CACHE[key] = out
     return out

@@ -116,8 +116,10 @@ Toutes les commandes, une à une : **[docs/fr/BUILD_YOUR_OWN.md](docs/fr/BUILD_Y
 
 ## Signaler un bogue
 
-Les bogues font progresser le projet. Écrivez à **jeremy.legere@gmail.com** ou ouvrez un ticket sur GitHub. Dans le jeu,
-**Aide > Signaler un bogue** inscrit votre version, votre système et votre écran, puis ouvre un courriel. Indiquez ce que
+Les bogues font progresser le projet. Ouvrez un ticket sur la
+[page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues). Dans le jeu,
+**Aide > Signaler un bogue** inscrit votre version, votre système et votre écran, puis ouvre un nouveau ticket dans votre
+navigateur. Indiquez ce que
 vous avez fait, ce que vous attendiez, ce qui s'est produit et, s'il s'agit d'une carrière, le fichier de sauvegarde de
 `saves/` (un simple fichier `.db` qui ne contient que cette carrière). Un « Traceback » dans le terminal est ce qu'il y a
 de plus utile. Détails : [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md).

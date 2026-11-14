@@ -125,8 +125,8 @@ moteur (`hs/attributes.py` en est la liste unique), écrivez un paquet.
 
 Un paquet de clubs et de joueurs **inventés** peut être partagé librement : réglez `redistributable: true`,
 `contains_real_names: false` et une licence dans `manifest.json`, puis compressez le dossier. Les autres le décompressent
-dans `packs/`, lancent `hs.ingest` et jouent. Pour que la vôtre soit répertoriée, ouvrez un ticket « Share a league » ou
-écrivez à jeremy.legere@gmail.com.
+dans `packs/`, lancent `hs.ingest` et jouent. Pour que la vôtre soit répertoriée, ouvrez un ticket « Share a league »
+sur la [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues).
 
 Ne partagez pas de paquets contenant de vrais joueurs, de vrais clubs, des logos ou les données d'autrui. Les vrais noms et
 marques exigent généralement une licence des ligues et des associations de joueurs ; voir `THIRD_PARTY.md`.
@@ -138,4 +138,5 @@ marques exigent généralement une licence des ligues et des associations de jou
   `worlds/`.
 * Pointage trop élevé ou trop bas dans votre monde : voir les conseils de la section 2 et
   [SIM_CALIBRATION.md](../SIM_CALIBRATION.md).
-* Tout autre cas : [CONTRIBUTING.fr.md](../../CONTRIBUTING.fr.md) dit quoi envoyer. jeremy.legere@gmail.com.
+* Tout autre cas : [CONTRIBUTING.fr.md](../../CONTRIBUTING.fr.md) dit quoi envoyer, sur la
+  [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues).

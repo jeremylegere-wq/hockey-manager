@@ -4,8 +4,8 @@
 
 ## Report a bug
 
-Email **jeremy.legere@gmail.com**, or open an issue on GitHub (the templates ask for the right things). In the game,
-**Help > Report a bug** fills in the details and opens an email.
+Open an issue on the [GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues) (the templates ask
+for the right things). In the game, **Help > Report a bug** fills in the details and opens a new issue in your browser.
 
 A report that can be fixed has:
 
@@ -26,7 +26,7 @@ Open an issue. `docs/ROADMAP.md` shows what is planned and what is already in; t
 
 ## Share a league
 
-A pack of invented clubs and players is welcome. Open an issue using "Share a league" and link it, or send it by email. Do
+A pack of invented clubs and players is welcome. Open an issue using "Share a league" and link it (or attach the zip). Do
 not publish packs built from other people's data (see `THIRD_PARTY.md`).
 
 ## Code
@@ -34,6 +34,9 @@ not publish packs built from other people's data (see `THIRD_PARTY.md`).
 ```bash
 python3 -m unittest discover -s tests
 ```
+
+Also run `python3 scripts/release_check.py`. CI runs both on every pull request. Add a line under `[Unreleased]` in
+`CHANGELOG.md` for anything a player would notice. Releases: [docs/RELEASING.md](docs/RELEASING.md).
 
 * Standard library only. No new dependencies without a very good reason.
 * Every module has a docstring that says what it does and what the numbers are; docs in `docs/` repeat it for players.

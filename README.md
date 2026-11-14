@@ -102,8 +102,8 @@ Every pack file and command, tested: **[docs/BUILD_YOUR_OWN.md](docs/BUILD_YOUR_
 
 ## Report a bug
 
-Bugs are how this gets better. Email **jeremy.legere@gmail.com** or open a GitHub issue. In the game, **Help > Report a bug**
-fills in your version, system and screen and opens an email. Please include what you did, what you expected, what happened,
+Bugs are how this gets better. Open an issue on the [GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues).
+In the game, **Help > Report a bug** fills in your version, system and screen and opens a new issue in your browser. Please include what you did, what you expected, what happened,
 and, if it is about a career, the save file from `saves/` (a plain `.db` file holding only that career). A "Traceback" in the
 terminal is the most useful thing there is. Details: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -116,6 +116,17 @@ Standard library only (Python 3.9+), SQLite saves, a stdlib HTTP server and vani
 python3 -m unittest discover -s tests        # about 410 tests; the whole suite takes several minutes
 python3 -m hs.game.cli my.db --env data/env_default.json -c "new PHM 7" -c "sim week" -c "standings"
 ```
+
+Checks before you push (the same ones CI runs on every push and pull request):
+
+```bash
+python3 scripts/release_check.py             # version, changelog, Python 3.9 syntax, no saves or third-party packs tracked
+python3 -m unittest discover -s tests        # the test suite
+```
+
+Releasing: set `VERSION` in `hs/ui/settings.py`, date the `[Unreleased]` section of `CHANGELOG.md`, push, then tag `v` + the
+version (`git tag -a v0.62 -m "Hockey Manager 0.62" && git push origin v0.62`). The Release workflow tests the tag and
+creates a draft GitHub Release with source archives and checksums for you to review. Steps: [docs/RELEASING.md](docs/RELEASING.md).
 
 Layout: `hs/sim/` the seeded match engine and 2D rink; `hs/league/` schedules, standings, playoffs; `hs/game/` the day-by-day
 game (contracts, trades, draft, finance, board, people); `hs/ui/` the server and front end; `hs/adapters/` and `hs/ratings/`
@@ -161,7 +172,7 @@ pour vous seulement : [créer votre ligue](docs/fr/BUILD_YOUR_OWN.md).
 [contribuer et signaler un bogue](CONTRIBUTING.fr.md). Les pages techniques (formules des IA, format des paquets, feuille de
 route) sont en anglais.
 
-**Signaler un bogue :** jeremy.legere@gmail.com, un ticket GitHub, ou **Aide > Signaler un bogue** dans le jeu.
+**Signaler un bogue :** un ticket sur la [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues), ou **Aide > Signaler un bogue** dans le jeu.
 
 <sub>Mots-clés : jeu de gestion de hockey, simulateur de directeur général de hockey, mode franchise de style LNH, jeu de
 gestion sportive hors ligne, jeu de hockey libre, simulation de hockey en Python, éditeur de base de données de hockey.</sub>

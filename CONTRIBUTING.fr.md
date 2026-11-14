@@ -4,8 +4,9 @@
 
 ## Signaler un bogue
 
-Écrivez à **jeremy.legere@gmail.com** ou ouvrez un ticket sur GitHub (les modèles demandent les bonnes informations). Dans
-le jeu, **Aide > Signaler un bogue** remplit les détails et ouvre un courriel.
+Ouvrez un ticket sur la [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues) (les modèles
+demandent les bonnes informations). Dans le jeu, **Aide > Signaler un bogue** remplit les détails et ouvre un nouveau
+ticket dans votre navigateur.
 
 Un rapport qui permet de corriger le problème contient :
 
@@ -31,7 +32,7 @@ volontairement.
 ## Partager une ligue
 
 Un paquet de clubs et de joueurs inventés est le bienvenu. Ouvrez un ticket avec le modèle « Share a league » et donnez le
-lien, ou envoyez-le par courriel. Ne publiez pas de paquets construits à partir des données d'autrui (voir
+lien (ou joignez le fichier zip). Ne publiez pas de paquets construits à partir des données d'autrui (voir
 `THIRD_PARTY.md`).
 
 ## Code

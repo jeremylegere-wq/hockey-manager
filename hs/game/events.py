@@ -17,6 +17,7 @@ TYPES = {
     "AWARD_WON", "PRESSER", "MEDIA_STORY", "LOCKER_ROOM", "LEAGUE_CHAMPION",
     "ALL_STAR", "HALL_OF_FAME", "EXHIBITION", "ACHIEVEMENT",               # v37, phase F
     "EXPANSION_PICK",                                                      # v45
+    "LEAGUE_MOVE",                                                         # v61: promotion and relegation
 }
 
 

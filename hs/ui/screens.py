@@ -463,10 +463,10 @@ def milestones(conn):
 
 
 # ---------------------------------------------------------------- reports
-REPORTS = ("injuries", "positional", "prospects", "performances", "morale")
+REPORTS = ("injuries", "positional", "prospects", "performances", "morale", "demographics", "redraft")
 
 
-def reports(conn, kind="positional"):
+def reports(conn, kind="positional", year=None):
     kind = kind if kind in REPORTS else "positional"
     ab = _abbr(conn)
     on = _today(conn)
@@ -535,6 +535,58 @@ def reports(conn, kind="positional"):
         out["rows"] = rows
         out["room"] = dict(cohesion=round(room["cohesion"]), atmosphere=room["atmosphere"],
                            leadership=round(room["leadership_strength"])) if room else None
+    elif kind == "demographics":                               # v59: who plays in the league, and how the clubs compare
+        rows = conn.execute(f"SELECT p.team_id, p.birth_date, p.nationality, p.height_cm, p.weight_kg, p.position FROM players p "
+                            f"WHERE p.team_id IN (SELECT team_id FROM teams WHERE {top_league_sql()}) AND p.status IN ('active','injured','ltir')").fetchall()
+        n = len(rows) or 1
+        nat, bands, clubs = {}, {}, {}
+        for r in rows:
+            nat[r["nationality"] or "?"] = nat.get(r["nationality"] or "?", 0) + 1
+            age = _age(r["birth_date"], on)
+            b = "under 22" if age < 22 else "22-25" if age < 26 else "26-29" if age < 30 else "30-33" if age < 34 else "34 and over"
+            bands[b] = bands.get(b, 0) + 1
+            c = clubs.setdefault(r["team_id"], dict(n=0, age=0.0, h=0.0, w=0.0, hn=0, wn=0, home=0, nats=set()))
+            c["n"] += 1
+            c["age"] += (on - datetime.date.fromisoformat(r["birth_date"])).days / 365.25
+            if r["height_cm"]:
+                c["h"] += r["height_cm"]
+                c["hn"] += 1
+            if r["weight_kg"]:
+                c["w"] += r["weight_kg"]
+                c["wn"] += 1
+            c["nats"].add(r["nationality"])
+        out["players"] = len(rows)
+        out["nations"] = [dict(nation=k, n=v, pct=round(100 * v / n, 1)) for k, v in sorted(nat.items(), key=lambda x: -x[1])]
+        out["ages"] = [dict(band=b, n=bands.get(b, 0), pct=round(100 * bands.get(b, 0) / n, 1))
+                       for b in ("under 22", "22-25", "26-29", "30-33", "34 and over")]
+        out["clubs"] = sorted((dict(team=ab.get(t), team_id=t, n=c["n"], age=round(c["age"] / c["n"], 1),
+                                    height=round(c["h"] / c["hn"]) if c["hn"] else None, weight=round(c["w"] / c["wn"]) if c["wn"] else None,
+                                    nations=len(c["nats"])) for t, c in clubs.items()), key=lambda x: x["age"])
+    elif kind == "redraft":                                    # v59: draft surprises, looking back: steals and reaches
+        out.update(years=[], year=None, steals=[], reaches=[], rows=[])
+        if _has(conn, "draft_picks"):
+            years = [r[0] for r in conn.execute("SELECT DISTINCT draft_year FROM draft_picks WHERE player_id IS NOT NULL ORDER BY draft_year DESC")]
+            out["years"] = years
+            if years:
+                year = int(year) if year and str(year).isdigit() and int(year) in years else years[0]   # v61: any past draft
+                out["year"] = year
+                picks = conn.execute("SELECT d.overall, d.round, d.team_id, d.player_id, p.first_name, p.last_name, p.position, p.birth_date "
+                                     "FROM draft_picks d JOIN players p USING (player_id) WHERE d.draft_year=? ORDER BY d.overall", (year,)).fetchall()
+                pot = {r[0]: r[1] for r in conn.execute("SELECT player_id, potential FROM player_dev")} if _has(conn, "player_dev") else {}
+                ids = [r["player_id"] for r in picks]
+                vals = _values(conn, "p.player_id IN (%s)" % ",".join(map(str, ids))) if ids else {}
+                rows = []
+                for r in picks:
+                    v = vals.get(r["player_id"], (0, None, None))[0]
+                    rows.append(dict(overall=r["overall"], round=r["round"], team=ab.get(r["team_id"]), team_id=r["team_id"],
+                                     player_id=r["player_id"], name=_name(r), pos=r["position"], age=_age(r["birth_date"], on), value=v,
+                                     potential=pot.get(r["player_id"]), score=round((pot.get(r["player_id"]) or 10) * 4 + v * 0.35, 1)))
+                for i, r in enumerate(sorted(rows, key=lambda x: -x["score"])):
+                    r["now"] = i + 1
+                    r["move"] = r["overall"] - r["now"]                 # + : he would go earlier today
+                out["rows"] = rows
+                out["steals"] = sorted((r for r in rows if r["move"] > 0), key=lambda x: (-x["move"], x["now"]))[:15]
+                out["reaches"] = sorted((r for r in rows if r["move"] < 0 and r["overall"] <= 64), key=lambda x: (x["move"], x["overall"]))[:15]
     return out
 
 
@@ -827,7 +879,12 @@ def player_search(conn, q):
 
 # ---------------------------------------------------------------- v38 (#24): the sim centre's leaders
 def sim_leaders(conn, n=5):
-    """This regular season's top five in points, goals and save % (15+ games), for the sim centre's side panel."""
+    """This regular season's top five in points, goals and save % (15+ games), for the sim centre's side panel.
+    v61: a European coach out of an NHL job sees his own league's leaders."""
+    from ..game import europe as EU, gm as GMx
+    eu = EU.club(conn) if GMx.unemployed(conn) else None
+    if eu:
+        return _eu_leaders(conn, eu, n)
     sid = conn.execute("SELECT season_id FROM seasons WHERE league_id IN (SELECT league_id FROM leagues WHERE COALESCE(level,1)=1) "
                        "ORDER BY start_year DESC LIMIT 1").fetchone()
     if not sid:
@@ -843,3 +900,27 @@ def sim_leaders(conn, n=5):
     f = lambda r, v: dict(player_id=r["player_id"], name=r["n"], team=ab.get(r["team_id"]), value=v)
     return dict(points=[f(r, r["g"] + r["a"]) for r in pts], goals=[f(r, r["g"]) for r in gls],
                 goalies=[f(r, f"{r['sv'] / r['sa']:.3f}".lstrip("0")) for r in gk])
+
+
+def _eu_leaders(conn, club, n=5):
+    """The leaders of the European club's league this regular season (the league's own season stats)."""
+    from ..game import europe as EU
+    lid = conn.execute("SELECT league_id FROM teams WHERE team_id=?", (club,)).fetchone()[0]
+    year = EU.season_year(conn)
+    ab = {r[0]: r[1] for r in conn.execute("SELECT team_id, abbr FROM teams WHERE league_id=?", (lid,))}
+    sk = conn.execute("SELECT s.player_id, p.first_name||' '||p.last_name n, s.team_id, SUM(s.gp) gp, SUM(s.g) g, SUM(s.a) a "
+                      "FROM skater_season_stats s JOIN players p USING (player_id) WHERE s.league_id=? AND s.season_start_year=? "
+                      "AND s.split='RS' AND s.source='league' GROUP BY s.player_id", (lid, year)).fetchall()
+    gk = conn.execute("SELECT s.player_id, p.first_name||' '||p.last_name n, s.team_id, SUM(s.gp) gp, SUM(s.sa) sa, SUM(s.ga) ga "
+                      "FROM goalie_season_stats s JOIN players p USING (player_id) WHERE s.league_id=? AND s.season_start_year=? "
+                      "AND s.split='RS' AND s.source='league' GROUP BY s.player_id", (lid, year)).fetchall()
+    games = conn.execute("SELECT MAX(gp) FROM (SELECT SUM(gp) gp FROM goalie_season_stats WHERE league_id=? AND season_start_year=? "
+                         "AND split='RS' AND source='league' GROUP BY team_id)", (lid, year)).fetchone()[0] or 0
+    pts = sorted(sk, key=lambda r: (-(r["g"] + r["a"]), -r["g"], r["gp"]))[:n]
+    gls = sorted(sk, key=lambda r: (-r["g"], r["gp"]))[:n]
+    need = max(1, int(games * 0.4))                       # a goalie needs 40% of his club's games (15 of the NHL's 82 is ~18%)
+    gks = sorted([r for r in gk if r["gp"] >= need and r["sa"]], key=lambda r: -((r["sa"] - r["ga"]) / r["sa"]))[:n]
+    f = lambda r, v: dict(player_id=r["player_id"], name=r["n"], team=ab.get(r["team_id"], ""), value=v)
+    return dict(points=[f(r, r["g"] + r["a"]) for r in pts], goals=[f(r, r["g"]) for r in gls],
+                goalies=[f(r, f"{(r['sa'] - r['ga']) / r['sa']:.3f}".lstrip("0")) for r in gks], league=EU.european_leagues(conn)[lid]["abbr"],
+                mine=ab.get(club))

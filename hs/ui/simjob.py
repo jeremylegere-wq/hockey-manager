@@ -99,6 +99,64 @@ def day_entry(conn, s, me):
                 finished=bool(getattr(s, "season_finished", False)), deadline_days=deadline_days)
 
 
+def eu_day_entry(conn, s, club):
+    """v61: the sim centre for a European coach follows his league: its scores today, his club's game, its table, its
+    news, and his club's alerts (bids for his players, the board, the academy)."""
+    from ..game import europe as EU, leagues as LG
+    m, lid = EU._meta_of_club(conn, club)
+    ab = _ab(conn)
+    names = {r[0]: r[1] for r in conn.execute("SELECT team_id, name FROM teams WHERE league_id=?", (lid,))}
+    games = conn.execute("SELECT game_id, home, away, hg, ag, ot, stage FROM lg_games WHERE league_id=? AND day=? AND played=1",
+                         (lid, s.day)).fetchall()
+    scores = [dict(game_id=None, href=f"#worldleagues/{lid}", home=ab.get(h, "?"), away=ab.get(a, "?"), hg=hg, ag=ag,
+                   ot={1: "OT", 2: "SO", 3: "T"}.get(ot, ""), mine=club in (h, a)) for _, h, a, hg, ag, ot, _ in games]
+    mine = None
+    g = next((x for x in games if club in (x[1], x[2])), None)
+    if g:
+        _, h, a, hg, ag, ot, stage = g
+        won = (hg > ag) == (h == club)
+        us, them = (h, a) if h == club else (a, h)
+        mine = dict(simple=True, href=f"#worldleagues/{lid}", home=ab.get(h, "?"), away=ab.get(a, "?"), home_goals=hg,
+                    away_goals=ag, ot={1: "OT", 2: "SO"}.get(ot, ""), mine_home=h == club, home_id=h, away_id=a,
+                    headline=f"{names.get(us, '?')} {'beat' if won else 'lose to'} {names.get(them, '?')}",
+                    lede=f"{names.get(h, '?')} {hg}, {names.get(a, '?')} {ag}{' in overtime' if ot == 1 else ' in a shootout' if ot == 2 else ''}"
+                         f" ({m.get('abbr')}{', playoffs' if stage == 'PO' else ''}).",
+                    goals=[], stars=[], skaters={}, goalies=[])
+        from ..game import eu_match as EM                 # the engine played it: the full card, with the replay
+        gid = EM.of_lg_game(conn, g[0])
+        if gid:
+            try:
+                with EM.shadow(conn, gid):
+                    mine = _box(conn, gid, club)
+            except Exception:                              # (the plain card rather than no card)
+                pass
+    for x in scores:                                       # your game links to its page
+        if x["mine"] and mine and mine.get("game_id"):
+            x["href"] = f"#game/{mine['game_id']}"
+    table = LG.standings(conn, lid, EU.season_year(conn)) if lid in LG.leagues(conn) else []
+    po = (LG.leagues(conn).get(lid, (None, {}))[1].get("playoffs") or {})
+    cut = po.get("teams") or (po.get("direct", 6) + po.get("wild", 4))
+    standings = dict(groups=[dict(title=f"{m.get('abbr')} table", sections=[dict(title="", cut=min(cut, len(table)), rows=[
+        dict(abbr=ab.get(r["team_id"], "?"), gp=r["gp"], pts=r["pts"], streak="", mine=r["team_id"] == club) for r in table])])]) \
+        if table and any(r["gp"] for r in table) else None
+    ids = set(names) | {club}
+    q = ",".join("?" * len(ids))
+    news = [dict(type=e["event_type"], text=e["summary"], team=ab.get(e["team_id"], ""), player_id=e["player_id"],
+                 mine=club in (e["team_id"], e["other_team_id"]))
+            for e in conn.execute(f"SELECT * FROM league_events WHERE event_date=? AND (team_id IN ({q}) OR other_team_id IN ({q})) "
+                                  "ORDER BY importance DESC, event_id LIMIT 12", (s.day, *ids, *ids))]
+    alerts = [f"{r[0]} (Inbox)" for r in conn.execute("SELECT subject FROM inbox WHERE date=? AND COALESCE(sender,'') IN "
+                                                      "('Sporting director', 'Club president', 'Academy director', 'Agent')", (s.day,))]
+    champ = conn.execute("SELECT champion FROM lg_seasons WHERE league_id=? AND finished=? AND phase='done'", (lid, s.day)).fetchone()
+    out = dict(day=s.day, scores=scores, mine=mine, news=news, alerts=alerts, trades=[], press=[], standings=standings,
+               finished=bool(getattr(s, "season_finished", False)), deadline_days=None)
+    if champ and champ[0]:
+        out["champion"] = names.get(champ[0], "?")
+        out["champion_title"] = f"{m.get('abbr')} CHAMPIONS"
+        out["champion_href"] = f"#worldleagues/{lid}"
+    return out
+
+
 def conn_has_room_msg(g, day):
     try:
         return bool(g.cli.conn.execute("SELECT 1 FROM inbox WHERE date=? AND subject='Trouble in the room'", (day,)).fetchone())
@@ -184,7 +242,9 @@ class SimJob:
                     if not out:
                         break
                     s = out[-1]
-                    entry = day_entry(conn, s, me)
+                    from ..game import europe as EU          # v61: a European coach follows his own league
+                    eu = EU.club(conn)
+                    entry = eu_day_entry(conn, s, eu) if eu and me is None else day_entry(conn, s, me)
                     if s.season_finished or K.season_state(conn) == "finished":
                         entry["finished"] = True
                         champ = conn.execute("SELECT value FROM pack_info WHERE key='champion'").fetchone()

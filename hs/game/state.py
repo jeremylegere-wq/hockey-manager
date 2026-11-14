@@ -88,6 +88,24 @@ def user_team(conn):
     return r["team_id"] if r else None
 
 
+def squad_team(conn):
+    """The club whose squad you pick: your NHL club, else the European club you run (v61), else None."""
+    t = user_team(conn)
+    if t is not None:
+        return t
+    r = conn.execute("SELECT value FROM pack_info WHERE key='eu_club'").fetchone()
+    return int(r[0]) if r and r[0] else None
+
+
+def member_sql(conn, team, p=""):
+    """SQL (with one ? for the club) for the players of `team`: an NHL organisation's by team_id, the European club
+    you run by club_id (its players hold no NHL team_id)."""
+    r = conn.execute("SELECT value FROM pack_info WHERE key='eu_club'").fetchone()
+    if r and r[0] and int(r[0]) == team:
+        return f"{p}club_id=? AND {p}team_id IS NULL"
+    return f"{p}team_id=?"
+
+
 def season_state(conn):
     r = conn.execute("SELECT value FROM pack_info WHERE key='season_state'").fetchone()
     return r["value"] if r else "regular_season"

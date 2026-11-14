@@ -1,0 +1,7 @@
+cd hockeysim_public
+gh auth login
+gh repo create jeremylegere-wq/hockey-manager --public --source=. --push \
+  --description "Open-source hockey management simulation: a single-player ice hockey GM game in Python. Rosters, lines, cap, trades, draft, scouting, finances, 2D replay. Build your own league."
+gh repo edit --add-topic hockey --add-topic hockey-manager --add-topic hockey-simulation --add-topic sports-management-game \
+  --add-topic general-manager --add-topic franchise-mode --add-topic python --add-topic sqlite --add-topic simulation \
+  --add-topic nhl --add-topic ice-hockey --add-topic open-source-game --add-topic moddable --add-topic game-engine

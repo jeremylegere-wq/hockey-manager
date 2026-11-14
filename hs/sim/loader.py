@@ -14,8 +14,10 @@ def load_teams(conn: sqlite3.Connection) -> dict:
     for t in ("skater_season_stats", "goalie_season_stats"):
         last = {}
         for pid, y, toi, gp in conn.execute(
-                f"SELECT s.player_id, s.season_start_year, s.toi_sec, s.gp FROM {t} s JOIN players p USING (player_id) "
-                "WHERE s.split='RS' AND p.status='active' AND p.team_id IS NOT NULL"):
+                # (v60: from the few hundred players to their seasons by index; the other way round read every season
+                # line in the world, and with every league in play there are hundreds of thousands)
+                f"SELECT s.player_id, s.season_start_year, s.toi_sec, s.gp FROM players p CROSS JOIN {t} s "
+                "ON s.player_id=p.player_id WHERE s.split='RS' AND p.status='active' AND p.team_id IS NOT NULL"):
             cur = last.get(pid)
             if cur is None or y > cur[0]:
                 last[pid] = [y, toi or 0, gp or 0]
@@ -284,3 +286,41 @@ def write_ratings(conn, game_id, ids, res, teams):
             ov = round(0.4 * off + 0.6 * de, 1) if pos.get(pid) == "D" else round(0.6 * off + 0.4 * de, 1)
         rows.append((game_id, pid, ids[res.stats[pid]["team"]], off, de, ov))
     conn.executemany("INSERT OR REPLACE INTO game_ratings VALUES (?,?,?,?,?,?)", rows)
+
+
+def load_club(conn: sqlite3.Connection, club: int):
+    """v61: the European club you run as an engine Team, for the lines screen (its games are played by the leagues'
+    results model, which reads the lines back from here). Its players hold no NHL team_id, only club_id. Last
+    season's ice time orders the default depth chart, as for an NHL club; with none, overall usefulness does."""
+    import json
+    conn.row_factory = sqlite3.Row
+    from ..game.discipline import suspended
+    out_ = suspended(conn)
+    use = {}
+    for t in ("skater_season_stats", "goalie_season_stats"):
+        for pid, y, toi, gp in conn.execute(
+                f"SELECT s.player_id, s.season_start_year, s.toi_sec, s.gp FROM players p JOIN {t} s ON s.player_id=p.player_id "
+                "WHERE p.club_id=? AND p.team_id IS NULL AND s.split='RS'", (club,)):
+            cur = use.get(pid)
+            if cur is None or y > cur[0]:
+                use[pid] = [y, toi or 0, gp or 0]
+    pl = []
+    for r in conn.execute("SELECT p.player_id, p.position, p.first_name, p.last_name, a.* FROM players p JOIN player_attributes a "
+                          "USING (player_id) WHERE p.club_id=? AND p.team_id IS NULL AND p.status='active'", (club,)):
+        if r["player_id"] in out_:
+            continue
+        d = dict(r)
+        _, toi, gp = use.get(d["player_id"], (0, 0, 0))
+        p = Player.from_attrs(d["player_id"], d["position"], d, f"{d['first_name']} {d['last_name']}", toi, gp)
+        if not toi:
+            p.toi = 1000 * (p.gen + p.sup + p.qual) / 3
+        pl.append(p)
+    if sum(p.pos == "G" for p in pl) < 1 or sum(p.pos != "G" for p in pl) < 12:
+        return None
+    name = conn.execute("SELECT abbr FROM teams WHERE team_id=?", (club,)).fetchone()
+    t = Team(club, name[0] if name else str(club), pl)
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='lineups'").fetchone():
+        r = conn.execute("SELECT data FROM lineups WHERE team_id=?", (club,)).fetchone()
+        if r:
+            t.missing = t.apply_lineup(json.loads(r[0]))
+    return t

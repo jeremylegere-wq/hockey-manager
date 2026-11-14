@@ -2,7 +2,7 @@
 // v34, phase C: money. The Finances screen: this season's books, the gate and attendance, ticket prices, budgets,
 // the arena, the league's attendance, the seasons' history and a full-season projection.
 
-const M = (v) => v == null ? "-" : `${v < 0 ? "-" : ""}$${(Math.abs(v) / 1e6).toFixed(1)}M`;
+const M = (v) => money(v, "USD", {millions: true, digits: 1});
 VIEWS.finances = async (season) => {
   const d = await api("finances", season ? {season} : {});
   const f = d.profile, L = d.ledger;
@@ -20,15 +20,15 @@ VIEWS.finances = async (season) => {
     <div><b class="${p.profit >= 0 ? "r4" : "r1"}">${M(p.profit)}</b><span>result</span></div><div><b>${Math.round(p.fill * 100)}%</b><span>full</span></div></div>
     <p class="muted small">A full season at today's prices, form and fan mood.</p>`;
   const prices = `<table class="kvt">${Object.entries(d.prices).map(([k, x]) => `<tr><th>${{lower: "Lower bowl", upper: "Upper bowl", premium: "Premium and suites"}[k]}
-      <span class="muted small">${x.seats.toLocaleString()} seats</span></th><td>$<input class="fin-in" data-price="${k}" value="${Math.round(x.price)}" size="5">
-      <span class="muted small">reference $${x.ref}</span></td></tr>`).join("")}</table>
+      <span class="muted small">${x.seats.toLocaleString()} seats</span></th><td>${usdIn()}<input class="fin-in" data-price="${k}" value="${Math.round(x.price)}" size="5">
+      <span class="muted small">reference ${money(x.ref)}</span></td></tr>`).join("")}</table>
     <p class="muted small">Above the reference, fewer seats sell (the upper bowl is the most sensitive, premium the least); below it, more, up to a sell-out. Playoff tickets sell at 1.6x.</p>`;
-  const budgets = `<table class="kvt">${Object.entries(d.budgets).map(([k, x]) => `<tr><th>${k[0].toUpperCase() + k.slice(1)}</th><td>$<input class="fin-in" data-budget="${k}" value="${(x.amount / 1e6).toFixed(2)}" size="5">M a year
+  const budgets = `<table class="kvt">${Object.entries(d.budgets).map(([k, x]) => `<tr><th>${k[0].toUpperCase() + k.slice(1)}</th><td>${usdIn()}<input class="fin-in" data-budget="${k}" value="${(x.amount / 1e6).toFixed(2)}" size="5">M a year
       <span class="muted small">default ${M(x.default)}, ${M(x.range[0])}-${M(x.range[1])}</span></td></tr>`).join("")}</table>
     <p class="muted small">Now: scouts' error x${d.effects.scouting}, development x${d.effects.development}, fans' mood ${d.effects.marketing >= 0 ? "+" : ""}${d.effects.marketing} a week. Every AI club spends the defaults.</p>`;
   const arena = `<table class="kvt"><tr><th>Capacity</th><td>${f.capacity.toLocaleString()}</td></tr><tr><th>Quality</th><td>${bar(f.arena_quality)}</td></tr><tr><th>Market</th><td>${f.market} of 10</td></tr></table>
     <p class="row"><button data-ask="improve">Renovate...</button> <button data-ask="expand">Add seats...</button></p>
-    <p class="muted small">Offseason only, paid from cash: ${M(d.arena.cost_point)} a point of quality (up to 95), $${d.arena.cost_seat.toLocaleString()} a seat (up to 22,000). Quality lifts demand a little every game.</p>`;
+    <p class="muted small">Offseason only, paid from cash: ${M(d.arena.cost_point)} a point of quality (up to 95), ${money(d.arena.cost_seat)} a seat (up to 22,000). Quality lifts demand a little every game.</p>`;
   const games = d.games.length ? table(d.games, [{key: "day", label: "Date", fmt: (r) => dshort(r.day)}, {key: "opp", label: "Visitor", fmt: (r) => tm(r.opp)},
     {key: "total", label: "Crowd", num: true, fmt: (r) => r.total.toLocaleString()}, {key: "fill", label: "Full", num: true, fmt: (r) => `${Math.round(100 * r.total / r.capacity)}%`},
     {key: "gate", label: "Gate", num: true, fmt: (r) => M(r.gate)}]) : empty("No home games yet this season.");
@@ -43,7 +43,7 @@ VIEWS.finances = async (season) => {
     document.querySelectorAll("[data-budget]").forEach((x) => (x.onchange = () => cmd(`budget ${x.dataset.budget} ${x.value}`)));
     document.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = async () => {
       const imp = b.dataset.ask === "improve";
-      const v = await ask(imp ? `Arena quality is ${f.arena_quality.toFixed(0)}. How many points of renovation (${M(d.arena.cost_point)} each)?` : `Capacity is ${f.capacity.toLocaleString()}. How many seats to add ($${d.arena.cost_seat.toLocaleString()} each)?`, {input: imp ? "5" : "500", ok: "Build"});
+      const v = await ask(imp ? `Arena quality is ${f.arena_quality.toFixed(0)}. How many points of renovation (${M(d.arena.cost_point)} each)?` : `Capacity is ${f.capacity.toLocaleString()}. How many seats to add (${money(d.arena.cost_seat)} each)?`, {input: imp ? "5" : "500", ok: "Build"});
       if (v) cmd(`arena ${b.dataset.ask} ${parseInt(v, 10)}`);
     }));
     const s = $("#fin-s"); if (s) s.onchange = (e) => { location.hash = `#finances/${e.target.value}`; };

@@ -201,4 +201,5 @@ priority and a deadline; meeting one gives +2 to +6 confidence, missing one cost
 **Can I undo?** Rolling backups (File > Backups) restore a copy as a new save. Careers are plain files; copy one before a risky
 decision.
 
-**A result looks wrong.** It might be a bug. Help > Report a bug, or email jeremy.legere@gmail.com with the save file.
+**A result looks wrong.** It might be a bug. Help > Report a bug, or open an issue on the
+[GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues) with the save file attached.

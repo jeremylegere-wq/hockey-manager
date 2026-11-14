@@ -68,18 +68,51 @@ The puck is always carried, passed, shot or loose; it is never moved by hand.
   arrow keys move five seconds).
 * Who is on the ice for each club, and a running play by play.
 
+## Watching your game
+
+On a game day the bar at the bottom has **Watch in 2D**. The day is played, then your game opens in a window of its own
+from the opening draw: the score builds as it happens, and there is no scrubber, no "next goal" and no box score to give
+the result away. Close it (Esc, or Close) at any time, or wait for the final; the day's results are then on the usual
+screens. If the day stops before your game for something that needs you (a press conference, an offer), you are told
+and nothing is shown.
+
+## Offside (v0.61, issue #24)
+
+The engine does not record offsides, so the replay must never draw one. A goal it shows comes from a legal entry.
+The blue line works as it does under the rulebook (NHL Rule 83): it is a foot wide and belongs to the zone the puck is in.
+The puck is in the zone only once it has completely crossed the line, and out only once it has completely crossed back.
+A player is offside when both skates are over the line before the puck. In the 2D game, his centre is more than
+`ONSIDE` (1 ft) past it.
+
+- **Puck in the zone.** The man with it, or the man the pass is going to, keeps it inside the line. The point man does
+  not let it slide out and play it straight back in to team-mates who are still deep.
+- **Puck outside.** No team-mate goes in ahead of it. Each one stops at the line, allowing for the room he needs to
+  stop. A bump from another skater never pushes him over. Anyone still deep only skates out (tags up). The carrier
+  holds at the line until they are out.
+- **Passes.** No pass into the zone goes to a man who is already inside, and none in the zone goes to a man outside
+  the line. The passer waits up to 2.6 s for the receiver to get onside. A pass meant for someone who has gone off in
+  a change goes to the nearest man still on the ice. Before this, the man changing could take the puck to the bench.
+- **The last play before a shot.** If the puck is still outside the zone when the shooter's play starts, the carrier
+  brings it in himself, at speed, and the shooter follows it. Nobody stands still in his own end with the shooter
+  waiting deep for a long pass. That was the play in issue #24.
+
+`check["offside"]` counts any entry still drawn offside: carried, passed or dumped in. It is zero across 180+ games
+from five saves, about 75 of them in overtime. `tests/test_v61.py` also reads it back from the frames alone. The cost:
+shooters miss their spot a little more often (about 2.5 a game, was 2.3), because they now follow the puck in rather
+than wait at the spot.
+
 ## For developers
 
 `ice2d.track(conn, game_id)` returns `dt` (0.2 s), `frames`, `players`, `marks`, `periods`, `check`; the docstring has the
 frame layout. API: `/api/track2?id=<game_id>`. A game takes about a second to build; nothing is cached or stored.
 
 `check` counts what the director could not stage cleanly: `offspot` (a shooter more than 9 ft from his spot when he
-shot: about two a game), `rushed` (a shooter brought off the bench for his shot), `missing`, `late`, `snap`; the tests
+shot: two to three a game), `offside` (an entry drawn offside: zero), `rushed` (a shooter brought off the bench for his shot), `missing`, `late`, `snap`; the tests
 (`tests/test_v59.py`) hold the last three at zero and check that every stored event is played, that nobody moves
 faster than a skater can, that the puck stays on the ice, that the same game always plays the same way, and that a
 save without the newer columns still plays.
 
 ## Not yet
 
-Hits and board battles as their own events, referees, offside and icing calls (the engine does not record them),
-goalies playing the puck, and watching your own game live before you know the score.
+Hits and board battles as their own events, referees, offside and icing whistles (the engine does not record
+them, so the 2D game plays every entry onside instead of calling one), and goalies playing the puck.

@@ -39,7 +39,7 @@ import statistics
 
 from . import roster as R
 from .events import player_name
-from .state import user_team
+from .state import user_team, squad_team, member_sql
 
 # role -> (label, positions, attributes, states, upside {key: per exec}, cost {key: fixed}, extra)
 # keys: att (own unit attempts), allow (opponents' attempts), qual (own goal probability), allow_qual, reb (own
@@ -279,14 +279,14 @@ def describe(role):
 
 
 def view(conn, team=None):
-    team = team or user_team(conn)
+    team = team or squad_team(conn)
     ensure_table(conn)
     means = league_means(conn)
     roles = team_roles(conn, team)
     ids = _dressed(conn, team)
     rows = []
     for r in conn.execute("SELECT p.player_id, p.position, p.first_name||' '||p.last_name name, a.* FROM players p JOIN player_attributes a "
-                          "USING (player_id) WHERE p.team_id=? AND p.status IN ('active', 'injured') AND p.position<>'G'", (team,)):
+                          f"USING (player_id) WHERE {member_sql(conn, team, 'p.')} AND p.status IN ('active', 'injured') AND p.position<>'G'", (team,)):
         fs = {role: fit(conn, r, r["position"], role, means) for role in ROLES}
         fs = {k: v for k, v in fs.items() if v is not None}
         best = max(fs, key=fs.get) if fs else None

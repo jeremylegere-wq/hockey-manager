@@ -167,3 +167,19 @@ used by default.
 | 9 | 2D game | On-ice play needs rework | Fixed v59 | Rebuilt: hs/sim/ice_plan.py and hs/sim/ice2d.py play the engine's events as possessions (breakouts, entries, cycles, power-play and penalty-kill shapes, changes through the bench, faceoffs, the box, pulled goalies, the shootout); a new viewer (ice.js) with jersey tokens, a broadcast scoreboard, banners, two cameras and a full-window mode. Works on every game of every save (docs/RINK2D.md) |
 | 10 | World | Remove the old generated world | Fixed v42 | It no longer ships; the bundled world is the only one (others can still be imported or built from packs) |
 | 11 | Sim centre | The top bar pushes its buttons off screen | Fixed v42 | The bar wraps instead of overflowing, and once the sim stops it drops the pace buttons and progress bar to make room |
+
+## GitHub issues
+
+| # | Area | What was reported | Status | What changed |
+|---|---|---|---|---|
+| [24](https://github.com/jeremylegere-wq/hockey-manager/issues/24) | 2D game | A goal in 3-on-3 overtime came from an offside entry: the scorer waited deep in the zone while his team-mate, standing still in his own end, made a long pass to him | Fixed v61 | The 2D game had no offside rule: the shooter was sent straight to his spot, and about 24 entries a game were drawn offside. Now the blue line works as in the rulebook and the puck always goes in first (carried, passed or dumped); the last play brings the puck in instead of waiting; nobody takes a pass while skating off for a change; players coming on use the door they left by (no 16 ft jump along the bench). Zero offside entries across 180+ games (docs/RINK2D.md, "Offside") |
+| v61 testing | Europe | Coaching a Swiss League club after being fired in the NHL, the sim centre still showed the NHL's scores and standings | Fixed v61 | A European coach's sim centre follows his league: its scores, his club's game, its table and news, his club's alerts. Out of work, the NHL stays the default |
+| v61 testing | Jobs | The club that just fired you was listed as an opening and could be applied to | Fixed v61 | For a year after a firing (NHL) or a sacking (Europe) that club is left off your list and an application to it is turned down |
+| v61 testing | Europe | A KHL career began on 5 October, a month into the KHL season | Fixed v61 | A European career starts the day before its league opens; later seasons open camp a week before and the season the day before |
+| v61 testing | Europe | The European club's lineup was a separate screen that did not look like the rest of the game | Fixed v61 | The club is picked on the NHL's Lines, Tactics and Lineups screens, and its business sits behind the game's own tabs |
+| v61 testing | Interface | No way to see money in your own currency | Added v61 | Display currency: new-game screen, Currency menu, Settings (docs/CURRENCY.md) |
+| v61 testing | Interface | No Russian interface | Added v61 | File > Русский (docs/RUSSIAN.md) |
+| v61 testing | Europe | Standings, statistics and other league screens showed the NHL to a KHL coach | Fixed v61 | The league screens open on your league, with a League picker for any other (docs/EUROPE.md, The league screens) |
+| v61 testing | Europe | No replays of a European club's games; the sim centre's leaders panel showed NHL players | Fixed v61 | Your club's games are played by the full engine, with recap and 2D replay; the leaders are your league's |
+| v61 testing | Currency | Choosing the rouble did not seem to work: the menu's rates entry, labelled with the rouble, only showed the rates | Fixed v61 | RUB is listed like every currency; Reference rates... shows a table; the formatting falls back for older WebKit windows |
+

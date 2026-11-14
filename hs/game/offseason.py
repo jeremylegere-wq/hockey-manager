@@ -84,6 +84,11 @@ def advance(conn, env, skill):
     else:
         mo, d = PHASE_DAY[nxt]
         day = datetime.date(offseason_calendar_year(conn), mo, d).isoformat()
+        if nxt == "preseason":                            # v61: a European coach's camp opens a week before his league
+            from . import europe as EU
+            op = EU.opening_in(conn, offseason_calendar_year(conn))
+            if op and (op - datetime.timedelta(days=8)).isoformat() < day:
+                day = (op - datetime.timedelta(days=8)).isoformat()
         _set_state(conn, nxt, day)
         lines = {"draft": _enter_draft, "rights": _enter_rights, "free_agency": _enter_free_agency, "arbitration": _enter_arbitration,
                  "awards": _enter_awards, "preseason": _enter_preseason}[nxt](conn, day)
@@ -241,6 +246,8 @@ def _enter_rights(conn, day):
 
 
 def _enter_free_agency(conn, day):
+    from . import europe as EU                            # v61: European contracts run out on 1 July
+    eu_lines = EU.summer(conn, day) if EU.active(conn) or EU.history(conn) else []
     year = K.season_year(conn)
     me = user_team(conn)
     for r in rights_rows(conn):
@@ -263,7 +270,7 @@ def _enter_free_agency(conn, day):
         conn.execute("INSERT OR REPLACE INTO pack_info (key, value) VALUES ('fa_live_pending', ?)", (day,))
         return ["Free agency opens at noon. The war room is open (Offseason: free agency)."]
     auction = FA.run_auction(conn, day)
-    return auction + after_auction(conn, day)
+    return eu_lines + auction + after_auction(conn, day)
 
 
 def after_auction(conn, day):
@@ -455,6 +462,10 @@ def _enter_preseason(conn, day):
         cohort = Wd.create_draft_class(conn, day)
         made = Wd.fill_clubs(conn, day)
         CO.register(conn, K.season_year(conn) + 1)        # anyone the world placed in a college club this summer
+        from . import europe as EU                         # v61: your European club's academy intake; contracts for newcomers
+        if EU.active(conn):
+            lines += EU.academy(conn, day)
+            EU.ensure_contracts(conn)
         lines.append(f"World: {grads} juniors/collegians moved on, {placed} players found clubs, {retired} retired "
                      f"without offers, a class of {cohort} 17-year-olds arrived, {made} other newcomers joined clubs.")
     from . import press
@@ -646,6 +657,10 @@ def _start_next_season(conn):
     create_schedule(conn, rules, seed + year)
     first = conn.execute("SELECT MIN(game_date) FROM games WHERE played=0 AND game_type='RS'").fetchone()[0]
     start = (datetime.date.fromisoformat(first) - datetime.timedelta(days=1)).isoformat()
+    from . import europe as EU                           # v61: a European coach's season starts with his league's
+    op = EU.opening_in(conn, year)
+    if op and (op - datetime.timedelta(days=1)).isoformat() < start and get_state(conn)[0] < start:
+        start = max(get_state(conn)[0], (op - datetime.timedelta(days=1)).isoformat())
     _set_state(conn, "regular_season", start)
     conn.execute("DELETE FROM pack_info WHERE key='champion'")
     from . import expansion as XP                        # v45: an expansion club plays its first season

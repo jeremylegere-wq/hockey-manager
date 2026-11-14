@@ -64,3 +64,14 @@ The goalie rule (with lineups on): "usual" (the first goalie on the list starts 
 "every game" (he starts them all), "rest on back-to-backs" (the second goalie starts the second of two games on
 consecutive days), "every fourth game" (the second goalie starts every fourth game).
 ```
+
+## Drag and lock (v59)
+
+* **Drag to swap.** On the Lines screen every forward and defence place has a grip (the dots beside its label). Drag
+  it onto another place and the two players swap. Nothing is kept until you press **Save lines**.
+* **Lock a place.** The **lock** button pins the player in that place: when your lineup lists rebuild the lines before
+  a game, a locked player keeps his place while he is fit, whatever the lists say, and the lists fill the rest. One
+  lock per place and one place per player; a locked place cannot be dragged until it is unlocked. Locks only matter
+  with Lineups on. Console: `lineups lock <player> F1 LW`, `lineups unlock <player>`, `lineups unlock all`.
+* Stored with the lists (`lineup_priority.data`, key `locks`); saves from before v59 simply have none.
+

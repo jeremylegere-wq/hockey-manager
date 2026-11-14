@@ -131,3 +131,57 @@ class Ice2DTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LineLockTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db, self.c, self.me = make_db(self.tmp.name)
+        self.addCleanup(self.c.close)
+
+    def test_a_locked_player_keeps_his_place(self):
+        from hs.game import lineups as LUP
+        base = LUP.build(self.c, self.me)
+        fourth = base["F"][3][1]                                        # a fourth-line winger...
+        LUP.set_lock(self.c, self.me, fourth, "F1", "LW")               # ...locked on the first line's left wing
+        lu = LUP.build(self.c, self.me)
+        self.assertEqual(lu["F"][0][1], fourth)
+        ids = [p for ln in lu["F"] for p in ln if p] + [p for pr in lu["D"] for p in pr if p]
+        self.assertEqual(len(ids), len(set(ids)))                       # nobody is in two places
+        self.assertEqual(LUP.view(self.c, self.me)["locks"][0]["pos"], "LW")
+        LUP.set_lock(self.c, self.me, fourth, "F2", "RW")               # a player has one lock: it moves
+        self.assertEqual(list(LUP.get(self.c, self.me)["locks"]), ["F2:2"])
+        LUP.set_lock(self.c, self.me, fourth)
+        self.assertEqual(LUP.build(self.c, self.me)["F"], base["F"])
+
+    def test_bad_locks_are_refused_and_old_data_reads(self):
+        from hs.game import lineups as LUP
+        d = self.c.execute("SELECT player_id FROM players WHERE team_id=? AND position='D' AND status='active' LIMIT 1", (self.me,)).fetchone()[0]
+        g = self.c.execute("SELECT player_id FROM players WHERE team_id=? AND position='G' LIMIT 1", (self.me,)).fetchone()[0]
+        with self.assertRaises(ValueError):
+            LUP.set_lock(self.c, self.me, d, "F9", "C")
+        with self.assertRaises(ValueError):
+            LUP.set_lock(self.c, self.me, d, "D1", "LW")
+        with self.assertRaises(ValueError):
+            LUP.set_lock(self.c, self.me, g, "F1", "C")
+        LUP.ensure_table(self.c)                                        # a row written before v59 has no "locks" key
+        self.c.execute("INSERT OR REPLACE INTO lineup_priority VALUES (?,?,?,?,?)", (self.me, '{"C": []}', "usual", 1, 0))
+        self.assertEqual(LUP.get(self.c, self.me)["locks"], {})
+        self.assertTrue(LUP.build(self.c, self.me)["F"])
+
+
+class ReportTests(unittest.TestCase):
+    def test_demographics_and_redraft(self):
+        from hs.ui import screens as SC
+        with tempfile.TemporaryDirectory() as tmp:
+            db, c, me = make_db(tmp)
+            d = SC.reports(c, "demographics")
+            self.assertEqual(sum(x["n"] for x in d["nations"]), d["players"])
+            self.assertEqual(sum(x["n"] for x in d["ages"]), d["players"])
+            self.assertTrue(all(18 <= x["age"] <= 40 for x in d["clubs"]))
+            r = SC.reports(c, "redraft")
+            self.assertIn("steals", r)
+            for x in r["rows"]:
+                self.assertEqual(x["move"], x["overall"] - x["now"])
+            c.close()

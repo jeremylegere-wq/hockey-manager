@@ -294,6 +294,12 @@ def is_tick(conn, day):
 def monthly(conn, day):
     """1 Nov - 1 Apr: a sixth of IN_SEASON_SHARE of each growing player's expected year, times his factors.
     Returns (players moved, report lines)."""
+    from . import ratings as RT
+    with RT.batch(conn):                                  # v60: one read of the rating scale for the whole pass
+        return _monthly(conn, day)
+
+
+def _monthly(conn, day):
     from . import world as W
     from . import contracts as K
     from ..worldgen import yearly_change

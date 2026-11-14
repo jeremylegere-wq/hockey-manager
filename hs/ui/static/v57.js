@@ -7,7 +7,7 @@ VIEWS.finances = async (...args) => {
   const html = await finV57(...args);
   let d;
   try { d = await api("arena"); } catch (e) { return html; }
-  const M = (v) => `$${(v / 1e6).toLocaleString(undefined, {maximumFractionDigits: 1})}M`;
+  const M = (v) => money(v, "USD", {millions: true, digits: 1});
   const p = d.project, ln = d.loan;
   let body;
   if (p) {
@@ -49,5 +49,4 @@ VIEWS.finances = async (...args) => {
 Object.assign(FR, {"A new arena": "Un nouvel aréna", "Ask the owner": "Demander au propriétaire", "Seats": "Sièges", "Quality": "Qualité",
   "Project": "Projet", "Cost": "Coût", "Loan": "Prêt", "Novelty": "Nouveauté", "Opens": "Ouverture"});
 
-/* ---- boot (keep last) ---- */
-loadLogos().finally(() => bootApp());
+/* ---- boot: moved to the last script (v59.js) ---- */

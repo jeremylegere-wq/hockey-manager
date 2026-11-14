@@ -99,7 +99,12 @@ def state(conn):
         from ..game import gm as GMx
         if get_state(conn) and GMx.unemployed(conn):        # out of work: the world goes on, the Job Centre is open
             s = GMx.settings(conn)
-            return dict(started=True, unemployed=True, team_id=None, team="Out of work", abbr="", date=get_state(conn)[0],
+            from ..game import europe as EUx                  # v61: or running a European club
+            eu = EUx.club(conn)
+            eu_info = dict(club_id=eu, name=EUx._club_name(conn, eu), league=EUx._meta_of_club(conn, eu)[0].get("abbr"),
+                           league_id=EUx._meta_of_club(conn, eu)[1]) if eu else None
+            return dict(started=True, unemployed=True, eu_club=eu_info, team_id=None,
+                        team=f"{eu_info['name']} ({eu_info['league']})" if eu_info else "Out of work", abbr="", date=get_state(conn)[0],
                         phase=K.season_state(conn), season=K.season_year(conn), record=None, unread=conn.execute(
                             "SELECT COUNT(*) FROM inbox WHERE read=0").fetchone()[0], fired=True, strip=None,
                         reputation=s["reputation"], jobs=len(__import__("hs.game.org", fromlist=["x"]).vacancies(conn)),
@@ -336,6 +341,8 @@ def player(conn, pid):
         from ..game import ledger as LG
         out["pay"] = LG.years_of(conn, cc["contract_id"])
         out["pay_structure"] = LG.structure_of(conn, cc["contract_id"])
+        from ..game import vetbonus as VB                                     # v61: veterans' performance bonuses
+        out["perf_bonus"] = VB.of_contract(conn, cc["contract_id"])
     from ..game import career as CR                                           # v41: NHL career before the save
     out["career_prior"] = CR.prior(conn, pid)
     if extra:                                         # v38: ability as stars; potential only your own staff can judge
@@ -489,8 +496,40 @@ def inbox(conn, all_=False):
     return [dict(r) for r in rows]
 
 
+def _eu_club(conn):
+    """v61: the European club you run while out of an NHL job, else None."""
+    if user_team(conn) is not None:
+        return None
+    from ..game import europe as EU
+    return EU.club(conn)
+
+
+def eu_games(conn, club, season=None):
+    """v61: the European club's games this season (its league's schedule), as the NHL screens list them."""
+    from ..game import europe as EU, eu_match as EM
+    year = season or EU.season_year(conn)
+    ab = {r[0]: r[1] for r in conn.execute("SELECT team_id, abbr FROM teams")}
+    out = []
+    for g in conn.execute("SELECT * FROM lg_games WHERE season=? AND (home=? OR away=?) ORDER BY day, game_id", (year, club, club)):
+        home = g["home"] == club
+        d = dict(game_id=EM.of_lg_game(conn, g["game_id"]) if g["played"] else None, date=g["day"], home=home,
+                 opponent=ab.get(g["away"] if home else g["home"], "?"), opponent_id=g["away"] if home else g["home"],
+                 type=g["stage"], played=bool(g["played"]), playoff=g["stage"] == "PO")
+        if g["played"]:
+            gf, ga = (g["hg"], g["ag"]) if home else (g["ag"], g["hg"])
+            ot = g["ot"] or 0
+            d.update(gf=gf, ga=ga, score=f"{gf}-{ga}", ot={1: "OT", 2: "SO", 3: ""}.get(ot, ""),
+                     result="T" if gf == ga else "W" if gf > ga else ("OTL" if ot in (1, 2) else "L"))
+        out.append(d)
+    return out
+
+
 def schedule(conn, n=20):
     me = user_team(conn)
+    eu = _eu_club(conn)
+    if eu:                                                # v61: your European club's games
+        gs = eu_games(conn, eu)
+        return dict(upcoming=[g for g in gs if not g["played"]][:n], results=[g for g in gs if g["played"]][::-1][:n * 5], europe=True)
     tm = teams_map(conn)
     return dict(upcoming=[dict(date=g["game_date"], home=g["home_team_id"] == me,
                                opponent=tm[g["away_team_id"] if g["home_team_id"] == me else g["home_team_id"]]["abbr"])
@@ -581,6 +620,9 @@ def news_view(conn, scope="club"):
     """Headlines, game recaps, the social feed and power rankings (hs/game/media.py; read-only)."""
     from ..game import media as M
     me = user_team(conn)
+    eu = _eu_club(conn)
+    if eu:                                                # v61: a European coach reads about his league
+        return _eu_news(conn, eu, scope)
     return dict(headlines=M.headlines(conn, None if scope == "league" else me, 30),
                 recaps=M.recent_recaps(conn, None if scope == "league" else me, 12),
                 social=M.social(conn, 30), power=M.power_rankings(conn), scope=scope)
@@ -651,6 +693,7 @@ def trade_view(conn, team=None):
         out["posture"], out["need"] = m.outlook[other], m.need(other)
         out["needs"] = {g: round(v) for g, v in m.needs[other].items()}      # v39: need scores 0-100
         out["state"] = round(m.S[other], 2)
+        out["needs_tab"] = GT.needs_tab(conn, m, me, other)                # v61: the needs tab
     return out
 
 
@@ -675,11 +718,12 @@ def trade_ask(conn, team, get):
 def lines_view(conn):
     """The lineup the engine will use, and who can go where (hs/game/lineup.py)."""
     from ..game import lineup as L
-    me = user_team(conn)
+    from ..game.state import squad_team, member_sql
+    me = squad_team(conn)
     cur = L.current(conn, me)
     players = []
     for r in conn.execute("SELECT player_id, first_name||' '||last_name n, position, status FROM players WHERE "
-                          "team_id=? AND status IN ('active','injured') ORDER BY position, last_name", (me,)):
+                          f"{member_sql(conn, me)} AND status IN ('active','injured') ORDER BY position, last_name", (me,)):
         players.append(dict(player_id=r["player_id"], name=r["n"], pos=r["position"], status=r["status"],
                             value=round(R.player_value(conn, r["player_id"]))))
     from ..game import tactics as TC
@@ -690,21 +734,22 @@ def lines_view(conn):
     for p in players:
         p.update(roles.get(p["player_id"], {}))
     notes = {}
+    shift = RL.league_shift(conn, me) if member_sql(conn, me) != "team_id=?" else {}
     if cur:
         for i, ln in enumerate(cur["F"]):
-            notes[f"F{i + 1}"] = RL.line_notes(roles, ln)
+            notes[f"F{i + 1}"] = RL.line_notes(roles, ln, shift=shift)
         for i, pr in enumerate(cur["D"]):
-            notes[f"D{i + 1}"] = RL.line_notes(roles, pr, d=True)
+            notes[f"D{i + 1}"] = RL.line_notes(roles, pr, d=True, shift=shift)
     chem = []
     try:
-        from ..sim.loader import load_teams
+        from ..sim.loader import load_teams, load_club
         from ..game.chemistry import team_view
-        t = load_teams(conn).get(me)
+        t = load_club(conn, me) if member_sql(conn, me) != "team_id=?" else load_teams(conn).get(me)
         if t:
             chem = team_view(conn, t, get_state(conn)[0])
     except Exception:
         pass
-    return dict(lineup=cur, players=players, system=TC.system_of(conn, me), systems=TC.options(conn, me),
+    return dict(lineup=cur, players=players, system=TC.system_of(conn, me), systems=TC.options(conn, me), europe=member_sql(conn, me) != "team_id=?",
                 owner_identity=o["identity"] if o else None, line_notes=notes, chemistry=chem,
                 tendencies={k: list(v) for k, v in __import__("hs.game.lineup", fromlist=["x"]).TENDENCIES.items()})
 
@@ -713,9 +758,15 @@ def tactics_view(conn, opp=None):
     """The Tactics screen (v33): the twelve settings with fit, execution and value for each option; the presets;
     the preferences; the next opponent's settings and what counters them."""
     from ..game import tactics as TC
-    me = user_team(conn)
-    nxt = conn.execute("SELECT home_team_id, away_team_id, game_date FROM games WHERE played=0 AND (home_team_id=? OR away_team_id=?) "
-                       "ORDER BY game_date LIMIT 1", (me, me)).fetchone()
+    from ..game.state import squad_team, member_sql
+    me = squad_team(conn)
+    eu = member_sql(conn, me) != "team_id=?"                  # v61: the European club you run
+    if eu:
+        nxt = conn.execute("SELECT home, away, day FROM lg_games WHERE played=0 AND (home=? OR away=?) ORDER BY day LIMIT 1",
+                           (me, me)).fetchone() if _has(conn, "lg_games") else None
+    else:
+        nxt = conn.execute("SELECT home_team_id, away_team_id, game_date FROM games WHERE played=0 AND (home_team_id=? OR away_team_id=?) "
+                           "ORDER BY game_date LIMIT 1", (me, me)).fetchone()
     opp = int(opp) if opp else (nxt[1] if nxt and nxt[0] == me else nxt[0] if nxt else None)
     sc = None
     if opp:
@@ -729,7 +780,9 @@ def tactics_view(conn, opp=None):
                 prefs=TC.prefs_of(conn, me), pref_options={k: dict(label=v[0], options=v[1]) for k, v in TC.PREFS.items()},
                 value=round(TC.expected_value(m) * 100, 2), multipliers={k: round(v, 3) for k, v in m.items()}, scout=sc,
                 owner_identity=o["identity"] if o else None,
-                teams=[dict(team_id=r[0], abbr=r[1]) for r in conn.execute(f"SELECT team_id, abbr FROM teams WHERE {top_league_sql()} AND team_id<>? ORDER BY abbr", (me,))])
+                teams=[dict(team_id=r[0], abbr=r[1]) for r in conn.execute(
+                    (f"SELECT team_id, abbr FROM teams WHERE league_id=(SELECT league_id FROM teams WHERE team_id={int(me)})" if eu else
+                     f"SELECT team_id, abbr FROM teams WHERE {top_league_sql()}") + " AND team_id<>? ORDER BY abbr", (me,))])
 
 
 def staff_view(conn, role=None):
@@ -1346,6 +1399,18 @@ def calendar_view(conn, month=None):
     today = get_state(conn)[0]
     sid = season_id(conn)
     games = []
+    eu = _eu_club(conn)
+    if eu:                                                # v61: your European club's season and its league's dates
+        games = eu_games(conn, eu)
+        y = int(today[:4]) if today[5:7] >= "07" else int(today[:4]) - 1
+        events = [dict(date=f"{y + 1}-02-15", label="Transfer window closes"), dict(date=f"{y + 1}-07-01", label="Transfer window opens")]
+        rs = [g for g in games if g["type"] == "RS"]
+        if rs:
+            events += [dict(date=rs[0]["date"], label="Opening night"), dict(date=rs[-1]["date"], label="Last regular-season game")]
+        span = {g["date"][:7] for g in games} | {today[:7]}
+        months = sorted(span)
+        month = month if month in months else (today[:7] if today[:7] in months else months[0])
+        return dict(today=today, month=month, months=months, games=games, events=events)
     for g in conn.execute("SELECT * FROM games WHERE season_id=? AND (home_team_id=? OR away_team_id=?) ORDER BY game_date",
                           (sid, me, me)):
         home = g["home_team_id"] == me
@@ -1684,3 +1749,82 @@ def devchart(conn, pid):
         pts.append(dict(label="now", **{g: mean(dict(cur), ks) for g, ks in use.items()}))
     return dict(groups=list(use), points=pts, focus=TR.focus_of(conn, pid),
                 focus_options=list(TR.GOALIE_FOCUS if p and p[0] == "G" else TR.SKATER_FOCUS), wild=TR.is_wild(pid))
+
+
+def focus_leagues(conn):
+    """v61: the leagues the league screens can show: the NHL, then your European league, then the rest played game by
+    game (strongest first). `mine` is the league of the club you run."""
+    from ..game import europe as EU, leagues as LG
+    from ..game.world import top_league_id, world_meta
+    nhl = top_league_id(conn)
+    meta = world_meta(conn)
+    names = {r[0]: (r[1], r[2]) for r in conn.execute("SELECT league_id, abbr, name FROM leagues")}
+    eu = _eu_club(conn)
+    mine = EU._meta_of_club(conn, eu)[1] if eu else nhl
+    rest = sorted(LG.leagues(conn), key=lambda l: (l != mine, -((meta.get(l) or {}).get("mean") or 0)))
+    out = [dict(league_id=nhl, abbr=names[nhl][0], name=names[nhl][1], nhl=True)]
+    out += [dict(league_id=l, abbr=names[l][0], name=names[l][1], nhl=False) for l in rest if l in names]
+    return dict(nhl=nhl, mine=mine, leagues=out)
+
+
+def _eu_news(conn, club, scope="club"):
+    """v61: the news screen for a European coach: his league's (or his club's) stories, the recaps of his club's games,
+    the social feed, and power rankings of his league from its table and last ten games."""
+    from ..game import europe as EU, eu_match as EM, leagues as LG, media as M
+    m, lid = EU._meta_of_club(conn, club)
+    year = EU.season_year(conn)
+    clubs = {r[0]: (r[1], r[2]) for r in conn.execute("SELECT team_id, abbr, name FROM teams WHERE league_id=?", (lid,))}
+    want = {club} if scope != "league" else set(clubs)
+    q = ",".join(str(int(t)) for t in want) or "0"
+    heads = [dict(event_id=e["event_id"], date=e["event_date"], headline=e["summary"], body="", tag=e["event_type"].lower().replace("_", " "),
+                  team=clubs.get(e["team_id"], ("",))[0], player_id=e["player_id"], outlet=f"{m.get('abbr')} news")
+             for e in conn.execute(f"SELECT * FROM league_events WHERE team_id IN ({q}) OR other_team_id IN ({q}) "
+                                   "ORDER BY event_date DESC, event_id DESC LIMIT 30")]
+    names = {r[0]: r[1] for r in conn.execute("SELECT team_id, name FROM teams")}
+    verb = {"transfer": "Transfer", "loan": "Loan", "release": "Released", "signing": "Signing"}
+    for t in conn.execute(f"SELECT x.*, p.first_name||' '||p.last_name n FROM transactions x JOIN players p USING (player_id) "
+                          f"WHERE x.txn_type IN ('transfer','loan','release','signing') AND (x.to_team_id IN ({q}) OR x.from_team_id IN ({q})) "
+                          "ORDER BY x.txn_date DESC LIMIT 40"):
+        frm, to = names.get(t["from_team_id"]), names.get(t["to_team_id"])
+        if t["txn_type"] == "release":
+            text = f"{t['n']} leaves {frm or 'his club'}"
+        elif t["txn_type"] == "loan" and (t["detail"] or "") == "loan over":
+            text = f"{t['n']}'s loan at {frm} is over; back to {to}"
+        else:
+            text = f"{t['n']} {'joins' if t['txn_type'] != 'loan' else 'goes on loan to'} {to or '?'}" + (f" from {frm}" if frm else "")
+        heads.append(dict(event_id=None, date=t["txn_date"], headline=text, body=(t["detail"] or "") if t["txn_type"] == "loan" else "", tag=verb.get(t["txn_type"], t["txn_type"]).lower(),
+                          team=clubs.get(t["to_team_id"], clubs.get(t["from_team_id"], ("",)))[0], player_id=t["player_id"],
+                          outlet=f"{m.get('abbr')} news"))
+    heads.sort(key=lambda h: h["date"], reverse=True)
+    heads = heads[:40]
+    recaps = []
+    EM.ensure_tables(conn)
+    for (mid,) in conn.execute("SELECT match_id FROM eu_match WHERE home=? OR away=? ORDER BY day DESC, match_id DESC LIMIT 12",
+                               (club, club)).fetchall():
+        gid = EM.EU_BASE + mid
+        try:
+            with EM.shadow(conn, gid):
+                r = M.recap(conn, gid)
+        except Exception:
+            continue
+        recaps.append(dict(game_id=gid, date=r["date"], headline=r["headline"], lede=r["lede"],
+                           score=f"{r['away']} {r['away_goals']} @ {r['home']} {r['home_goals']} {r['ot']}".strip()))
+    power = []
+    if lid in LG.leagues(conn):
+        tbl = LG.standings(conn, lid, year)
+        last = {}
+        for h, a, hg, ag, ot in conn.execute("SELECT home, away, hg, ag, ot FROM lg_games WHERE league_id=? AND season=? AND stage='RS' "
+                                             "AND played=1 ORDER BY day DESC, game_id DESC", (lid, year)):
+            for t, gf, ga in ((h, hg, ag), (a, ag, hg)):
+                f = last.setdefault(t, [0, 0, 0])
+                if sum(f) < 10:
+                    f[0 if gf > ga else 2 if ot in (1, 2) else 1] += 1
+        ranked = sorted(tbl, key=lambda r: (-(r["pts"] / r["gp"]) if r["gp"] else 0, -(r["gf"] - r["ga"])))
+        for i, r in enumerate(ranked):
+            w, l, o = last.get(r["team_id"], [0, 0, 0])
+            diff = r["gf"] - r["ga"]
+            blurb = ("No games yet." if not r["gp"] else "The team to beat." if i < 2 else f"{w} wins in ten. Hot." if w >= 7
+                     else "Cold stretch." if l + o >= 7 else "Outscoring people." if diff > 10 else "Getting outscored." if diff < -10 else "In the mix.")
+            power.append(dict(rank=i + 1, move=0, team=clubs.get(r["team_id"], ("?",))[0], name=clubs.get(r["team_id"], ("", "?"))[1],
+                              gp=r["gp"], pts=r["pts"], diff=diff, last10=f"{w}-{l}-{o}", blurb=blurb, mine=r["team_id"] == club))
+    return dict(headlines=heads, recaps=recaps, social=M.social(conn, 30), power=power, scope=scope, league=m.get("abbr"))

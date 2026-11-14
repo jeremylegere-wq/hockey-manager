@@ -4,7 +4,7 @@ const XP = {sel: null, scheme: null};
 VIEWS.expansion = async () => {
   const d = await api("expansion");
   const e = d.pending;
-  const money = (v) => v == null ? "-" : "$" + (v / 1e6).toFixed(2) + "M";
+  const money = (v) => mil(v);
   let parts = [];
   // status
   parts.push(panel("Expansion", `<p>${d.clubs} clubs in the league (limit ${d.max}). League expansion:

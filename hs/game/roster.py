@@ -109,6 +109,16 @@ def value_from_attrs(a, pos):
 
 
 def player_value(conn, player_id, on=None):
+    from ..perf import memo                                  # v60: the same answer until the database changes
+    cache = memo(conn, "player_value")
+    key = (player_id, on)
+    v = cache.get(key)
+    if v is None:
+        v = cache[key] = _player_value(conn, player_id, on)
+    return v
+
+
+def _player_value(conn, player_id, on=None):
     p = conn.execute("SELECT p.position, p.birth_date, a.* FROM players p JOIN player_attributes a USING (player_id) "
                      "WHERE p.player_id=?", (player_id,)).fetchone()
     if p is None:
@@ -121,8 +131,14 @@ def player_value(conn, player_id, on=None):
 
 
 def roster(conn, team_id):
-    return conn.execute("SELECT player_id, position, status FROM players WHERE team_id=? AND status IN "
-                        "('active','injured') ORDER BY player_id", (team_id,)).fetchall()
+    from ..perf import memo
+    cache = memo(conn, "roster")
+    rows = cache.get(team_id)
+    if rows is None:
+        from .state import member_sql                      # (v61: the European club you run, by club_id)
+        rows = cache[team_id] = conn.execute(f"SELECT player_id, position, status FROM players WHERE {member_sql(conn, team_id)} AND status IN "
+                                             "('active','injured') ORDER BY player_id", (team_id,)).fetchall()
+    return list(rows)
 
 
 def counts(conn, team_id, healthy_only=True):

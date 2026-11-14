@@ -3,11 +3,51 @@
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const money = (v) => v == null ? "-" : "$" + Math.round(v).toLocaleString();
+/* v61: money in the display currency. The game keeps every amount in its own currency (US dollars for the NHL and
+   North America, euros for the European clubs); the display converts at the reference rates below (European Central
+   Bank, 11 November 2026; the rouble from the Bank of Russia, 13 November 2026). docs/CURRENCY.md. */
+const FX = {date: "2026-11-11",
+  per_eur: {EUR: 1, USD: 1.1127, CAD: 1.5839, GBP: 0.8362, SEK: 11.051, NOK: 10.6145, DKK: 7.4755, CHF: 0.9234, CZK: 24.378,
+            PLN: 4.4038, RUB: 92.3322, AUD: 1.6222, JPY: 177.18},
+  names: {USD: "US dollar", CAD: "Canadian dollar", EUR: "Euro", GBP: "Pound sterling", SEK: "Swedish krona", NOK: "Norwegian krone",
+          DKK: "Danish krone", CHF: "Swiss franc", CZK: "Czech koruna", PLN: "Polish zloty", RUB: "Russian rouble", AUD: "Australian dollar", JPY: "Japanese yen"}};
+const uiLocale = () => { let l = "en"; try { l = localStorage.getItem("hmLang") || "en"; } catch (e) { /* private window */ } return {fr: "fr-CA", ru: "ru-RU"}[l] || "en-US"; };
+const curDisplay = (c) => (c === "CAD" || c === "AUD" ? "symbol" : "narrowSymbol");    // CA$ and A$, not a bare $
+// a currency formatter that also works in older WebKit windows, which reject "narrowSymbol" (and may lack compact
+// notation): fall back to the plain symbol, then to a formatter without the compact notation
+const nfCache = {};
+const nfSafe = (opts) => {
+  const key = uiLocale() + JSON.stringify(opts);
+  if (nfCache[key]) return nfCache[key];
+  const { notation, ...plain } = opts;
+  for (const o of [opts, {...opts, currencyDisplay: "symbol"}, {...plain, currencyDisplay: "symbol"}, {...plain, currencyDisplay: "code"}]) {
+    try { const nf = new Intl.NumberFormat(uiLocale(), o); nf.format(1); return (nfCache[key] = nf); } catch (e) { /* try the next */ }
+  }
+  return (nfCache[key] = {format: (x) => `${opts.currency || ""} ${Math.round(x).toLocaleString()}`});
+};
+const currencyCode = () => (typeof SETTINGS !== "undefined" && SETTINGS && FX.per_eur[SETTINGS.currency]) ? SETTINGS.currency : "USD";
+// an amount held in `from` (USD by default) in the display currency (or in its own with {native: true})
+const fxv = (v, from = "USD", to = currencyCode()) => +v * FX.per_eur[to] / FX.per_eur[from || "USD"];
+const money = (v, from = "USD", o = {}) => {
+  if (v == null || v === "" || isNaN(+v)) return "-";
+  const to = o.native ? (from || "USD") : currencyCode(), x = fxv(v, from, to);
+  const f = o.short || o.millions ? {notation: "compact", maximumFractionDigits: o.digits ?? (Math.abs(x) >= 1e7 ? 0 : 2)} : {maximumFractionDigits: 0};
+  return nfSafe({style: "currency", currency: to, currencyDisplay: curDisplay(to), ...f}).format(x);
+};
+// an input whose amount the game takes in US dollars: "$", or "US$" while another currency is displayed
+const usdIn = () => (currencyCode() === "USD" ? "$" : "US$");
+const CUR_SYM = {USD: "$", CAD: "CA$", EUR: "€", GBP: "£", SEK: "kr", NOK: "kr", DKK: "kr", CHF: "CHF", CZK: "Kč", PLN: "zł", RUB: "₽", AUD: "A$", JPY: "¥"};
+const curSym = () => {
+  const c = currencyCode();
+  try {
+    const v = nfSafe({style: "currency", currency: c, currencyDisplay: curDisplay(c)}).formatToParts(0).find((p) => p.type === "currency").value;
+    return v === c ? (CUR_SYM[c] || c) : v;                // (an older engine gives the code back: use the sign)
+  } catch (e) { return CUR_SYM[c] || c; }
+};
 const ssn = (y) => y == null || y === "" ? "-" : `${y}-${String((+y + 1) % 100).padStart(2, "0")}`;
 const CTYPE = {entry_level: "Entry-level", standard: "Standard", generated: "Standard", emergency: "Emergency", offer_sheet: "Offer sheet"};
 const ctype = (t) => CTYPE[t] || (t ? t.replace(/_/g, " ") : "");
-const mil = (v) => v == null ? "-" : "$" + (v / 1e6).toFixed(2) + "M";
+const mil = (v, from = "USD") => v == null ? "-" : money(v, from, {millions: true, digits: 2});
 let STATE = null;
 
 // The game's own question dialog (the browser's confirm() / prompt() look foreign in the desktop window).
@@ -469,7 +509,7 @@ VIEWS.schedule = async () => {
   return `<div class="grid g2">${panel("Upcoming", table(d.upcoming, [{key: "date", label: "Date"}, {key: "opp", label: "Opponent", fmt: (r) => `${r.home ? "vs" : "@"} ${esc(r.opponent)}`}]))}
     ${panel("Results", table(d.results, [{key: "date", label: "Date"}, {key: "opp", label: "Opponent", fmt: (r) => `${r.home ? "vs" : "@"} ${esc(r.opponent)}`},
       {key: "res", label: "Result", fmt: (r) => `<span class="tag ${r.result === "W" ? "pos" : r.result === "L" ? "neg" : "warn"}">${r.result}</span> ${r.gf}-${r.ga} ${esc(r.ot)}${r.playoff ? " (playoffs)" : ""}`},
-      {key: "g", label: "", fmt: (r) => `<a class="btn" href="#game/${r.game_id}">Recap &amp; replay</a>`}]))}</div>`;
+      {key: "g", label: "", fmt: (r) => r.game_id ? `<a class="btn" href="#game/${r.game_id}">Recap &amp; replay</a>` : ""}]))}</div>`;
 };
 
 VIEWS.history = async (scope = "club") => {
@@ -496,7 +536,7 @@ VIEWS.news = async (arg = "headlines") => {
   if (tab === "headlines") {
     body = panel(`${d.headlines[0] ? esc(d.headlines[0].outlet) : "News"}`, `<ul class="news">${d.headlines.map((h) =>
       `<li><div class="meta"><span class="date">${esc(h.date)}</span> <span class="tag">${esc(h.tag)}</span> ${esc(h.team)}</div>
-       <div class="headline"><a href="#article/${h.event_id}">${esc(h.headline)}</a></div>
+       <div class="headline">${h.event_id ? `<a href="#article/${h.event_id}">${esc(h.headline)}</a>` : h.player_id ? `<a href="#player/${h.player_id}">${esc(h.headline)}</a>` : esc(h.headline)}</div>
        <div class="muted">${esc(h.body)}</div></li>`).join("") || "<li class='muted'>Nothing yet.</li>"}</ul>`);
   } else if (tab === "recaps") {
     body = panel("The Morning Skate", `<ul class="news">${d.recaps.map((r) =>

@@ -22,7 +22,7 @@ import json
 from . import lineup as L
 from . import roster as R
 from .events import player_name
-from .state import get_state, user_team
+from .state import get_state, user_team, squad_team
 
 LISTS = ("C", "LW", "RW", "LD", "RD", "G", "PP", "PK")
 GOALIE_RULES = ("usual", "every_game", "back_to_back", "every_fourth")
@@ -37,15 +37,17 @@ def get(conn, team):
     ensure_table(conn)
     r = conn.execute("SELECT data, goalie_rule, enabled, starts FROM lineup_priority WHERE team_id=?", (team,)).fetchone()
     if not r:
-        return dict(lists={k: [] for k in LISTS}, goalie_rule="usual", enabled=False, starts=0)
+        return dict(lists={k: [] for k in LISTS}, goalie_rule="usual", enabled=False, starts=0, locks={})
     d = json.loads(r[0] or "{}")
-    return dict(lists={k: d.get(k, []) for k in LISTS}, goalie_rule=r[1] or "usual", enabled=bool(r[2]), starts=r[3] or 0)
+    return dict(lists={k: d.get(k, []) for k in LISTS}, goalie_rule=r[1] or "usual", enabled=bool(r[2]), starts=r[3] or 0,
+                locks=d.get("locks") or {})
 
 
 def _store(conn, team, cur):
     ensure_table(conn)
     conn.execute("INSERT OR REPLACE INTO lineup_priority VALUES (?,?,?,?,?)",
-                 (team, json.dumps(cur["lists"]), cur["goalie_rule"], int(cur["enabled"]), cur.get("starts", 0)))
+                 (team, json.dumps(dict(cur["lists"], locks=cur.get("locks") or {})), cur["goalie_rule"], int(cur["enabled"]),
+                  cur.get("starts", 0)))
 
 
 def suggest(conn, team):
@@ -104,6 +106,42 @@ def set_goalie_rule(conn, team, rule):
     _store(conn, team, cur)
 
 
+SLOTS = {"F": ("C", "LW", "RW"), "D": ("LD", "RD")}
+
+
+def _slot(unit, pos):
+    """'F2', 'LW' -> 'F2:1'. Raises ValueError for a slot that does not exist."""
+    unit, pos = unit.upper().strip(), pos.upper().strip()
+    if len(unit) != 2 or unit[0] not in SLOTS or not unit[1].isdigit() or not 1 <= int(unit[1]) <= (4 if unit[0] == "F" else 3):
+        raise ValueError("Lines are F1-F4 and D1-D3.")
+    if pos not in SLOTS[unit[0]]:
+        raise ValueError(f"{unit} has the places {', '.join(SLOTS[unit[0]])}.")
+    return f"{unit}:{SLOTS[unit[0]].index(pos)}"
+
+
+def set_lock(conn, team, pid, unit=None, pos=None):
+    """Lock a player to a place in the lines (v59): when the lists rebuild your lines he stays there while he is fit,
+    whatever the lists say. unit None: unlock him. A place holds one lock, a player one place."""
+    cur = get(conn, team)
+    locks = {k: v for k, v in cur["locks"].items() if v != pid}
+    if unit is not None:
+        r = conn.execute("SELECT position, team_id FROM players WHERE player_id=?", (pid,)).fetchone()
+        if r is None or r["team_id"] != team:
+            raise ValueError("He is not on your club.")
+        if r["position"] == "G":
+            raise ValueError("Goalies have their own rule (lineups goalie ...).")
+        locks[_slot(unit, pos)] = pid
+    cur["locks"] = locks
+    _store(conn, team, cur)
+    return locks
+
+
+def clear_locks(conn, team):
+    cur = get(conn, team)
+    cur["locks"] = {}
+    _store(conn, team, cur)
+
+
 def build(conn, team, day=None):
     """The lineup the lists give today: {"F", "D", "G", "PP", "PK", ...} (and G_force for the goalie rule)."""
     cur = get(conn, team)
@@ -135,16 +173,21 @@ def build(conn, team, day=None):
         if p:
             used.add(p)
         return p
-    centres = [take("C", lambda pos: pos == "C") for _ in range(4)]
+    locked = {}                                          # v59: locked places are filled first, by their own man
+    for slot, p in (cur.get("locks") or {}).items():
+        if p in avail and avail[p] != "G" and p not in used:
+            locked[slot] = p
+            used.add(p)
+    centres = [locked.get(f"F{k + 1}:0") or take("C", lambda pos: pos == "C") for k in range(4)]
     F = []
     for k in range(4):
-        lw = take("LW", lambda pos: pos in ("LW", "RW", "C"))
-        rw = take("RW", lambda pos: pos in ("RW", "LW", "C"))
+        lw = locked.get(f"F{k + 1}:1") or take("LW", lambda pos: pos in ("LW", "RW", "C"))
+        rw = locked.get(f"F{k + 1}:2") or take("RW", lambda pos: pos in ("RW", "LW", "C"))
         F.append([centres[k], lw, rw])
     D = []
     for k in range(3):
-        ld = take("LD", lambda pos: pos == "D")
-        rd = take("RD", lambda pos: pos == "D")
+        ld = locked.get(f"D{k + 1}:0") or take("LD", lambda pos: pos == "D")
+        rd = locked.get(f"D{k + 1}:1") or take("RD", lambda pos: pos == "D")
         D.append([ld, rd])
     goalies = [p for p in lists.get("G", []) if p in avail and avail[p] == "G"]
     goalies += sorted((p for p, pos in avail.items() if pos == "G" and p not in goalies), key=lambda p: -R.player_value(conn, p))
@@ -200,12 +243,14 @@ def before_games(conn, day):
 
 
 def view(conn, team=None):
-    team = team or user_team(conn)
+    team = team or squad_team(conn)
     cur = get(conn, team)
     lists = cur["lists"] if any(cur["lists"].values()) else suggest(conn, team)
     roster = {r["player_id"]: r for r in R.roster(conn, team)}
     name = lambda p: player_name(conn, p)
     return dict(enabled=cur["enabled"], goalie_rule=cur["goalie_rule"], rules=list(GOALIE_RULES),
+                locks=[dict(slot=k, unit=k.split(":")[0], pos=SLOTS[k[0]][int(k.split(":")[1])], player_id=p, name=name(p))
+                       for k, p in sorted(cur["locks"].items())],
                 lists={k: [dict(player_id=p, name=name(p), pos=roster[p]["position"] if p in roster else "?",
                                 status=roster[p]["status"] if p in roster else "gone") for p in v] for k, v in lists.items()},
                 roster=[dict(player_id=p, name=name(p), pos=r["position"], status=r["status"]) for p, r in roster.items()],

@@ -53,7 +53,7 @@ Legend: **have** = in the game now, **part** = some of it, **gap** = not started
 | Lineups (priority lists that rebuild lines each game) | v52: priority lists per slot rebuild the lines before every game (docs/LINES.md) | done | G |
 | Depth chart (organisation by position, prospects, future picks) | - | have | - (v31) |
 | Team history: player index, staff index, leaderboards, alumni, jersey numbers, records | Team page with seasons and franchise leaders; jersey numbers and retired numbers (v49) | part | G |
-| Trade offer: summary, assistant's opinion, five-asset limit, rights, pick protection (1/3/5/10), "make this work", needs tab, shopping tab (3 a day) | Two- and three-club trades, verdicts, "what would it take", picks, retention | part | G (needs, shopping, pick protection) |
+| Trade offer: summary, assistant's opinion, five-asset limit, rights, pick protection (1/3/5/10), "make this work", needs tab, shopping tab (3 a day) | Two- and three-club trades, verdicts, "what would it take", picks, retention | part | G (pick swaps; the needs tab is in v61) |
 | No-trade / no-movement clauses with acceptable destinations | No-trade flag on contracts | part | G (with the contract clauses) |
 | Staff screen and staff market | Have | have | - |
 | Upcoming FAs, unsigned picks with signing deadlines | Rights room, Prospects (v28) | have | - |
@@ -92,7 +92,7 @@ Legend: **have** = in the game now, **part** = some of it, **gap** = not started
 | Game rating (offensive, defensive, overall per game) | Three stars, box scores | have | - (v35) |
 | Injury deferral | - | have | - (playing hurt, v35) |
 | Mutual contract termination | Buyouts, releases | have | - (v35) |
-| Contract bonuses (ELC, 35+ one-year, injured veterans; A and B levels) | ELC performance bonuses | part | G (35+ and injured-veteran bonuses) |
+| Contract bonuses (ELC, 35+ one-year, injured veterans; A and B levels) | ELC performance bonuses; 35+ and injured-veteran one-year bonuses with the bonus cushion and overage (v61) | done | |
 | Media relations: coverage level, base attitude, focus players, GM responses | Press room with archetypes, sentiment, controversy, story chains (v27) | part | G (coverage level, focus players) |
 | Staff attributes (evaluate ability/potential, tactics, motivation, negotiation, self-preservation, trainer skill...) | Coach, development, evaluation, medical, communication, leadership, style | part | G (negotiation, self-preservation, trainer skill) |
 
@@ -253,3 +253,42 @@ Each phase ships with its docs page, unit tests and a pass through every screen 
   on the fly, faceoffs, the penalty box, the sixth attacker, celebrations, the shootout. A new viewer (`ice.js`): jersey
   tokens with numbers and sticks, benches and boxes, a broadcast scoreboard, banners, two cameras, full window. The
   match engine still decides every result; nothing is written to the save, so every old game plays (docs/RINK2D.md).
+* **v59, continued.** Watch your own game in 2D before you know the score (the bottom bar on a game day). Lines: drag
+  one place onto another to swap, and lock a player to his place for the lineup lists (docs/LINES.md). Two reports:
+  league demographics, and each draft looked at again (steals and reaches).
+* **Status check (v59).** Three rows of the table above read "part" for things that are in: pick protection (v39) and
+  conditional picks (v41), modified no-trade lists (v39), and shopping a player (v42). Still open from the long tail:
+  pick swap rights, a needs tab on the trade screen (done v61), 35+ and injured-veteran bonuses (done v61), unit-level and more player-level
+  tactics, asymmetric chemistry, media coverage levels, more staff attributes, goalie training slots, player templates,
+  staff and alumni indexes, historical starts, other playable leagues, and the game's own text in French.
+* **v60: every league plays; faster days.** Rules for the 23 leagues that had none (approximate formats, a new "top N"
+  playoff), so all 36 leagues around the top one can play game by game; **Leagues in play** chooses per league between
+  game by game and a season at a time (docs/LEAGUES.md). A simulated day is about a third faster with the same leagues,
+  with a byte-identical save (indexes, a write-invalidated read cache, leaner queries: docs/PERFORMANCE.md).
+* **v61: no offside in the 2D game (issue #24).** The replay plays every zone entry onside, the blue line works as in
+  the rulebook, and the last play before a shot brings the puck in rather than waiting for a long pass. Two smaller
+  fixes from the same work: no pass to a man skating off for a change, and no jump along the bench when a player comes
+  back on (docs/RINK2D.md).
+* **v61: the leagues' real formats.** Every European league now plays its real 2025-26 format, sourced from its season
+  page, rulebook or press kit: wild-card rounds, picks, fixed brackets, two-game aggregate rounds, the Alps' Master
+  Round, the EIHL's Final Four and third-place games. Promotion and relegation run between the SHL and
+  HockeyAllsvenskan, the NL and the Swiss League, the DEL and DEL2, and the Czech Extraliga and the Maxa liga
+  (docs/LEAGUES.md, "Real formats").
+* **v61: from the backlog.** Performance bonuses on one-year deals for 35+ and injured veterans, with the bonus
+  cushion and overage (docs/CONTRACTS.md). A needs tab on the trade screen (docs/TRADES.md). Any past draft in the
+  redraft report.
+* **v61: run a European club.** Take a job with a club in any European league that plays game by game
+  (docs/EUROPE.md). No draft and no trades: you recruit. Contracts and wages, transfers (a fee agreed with his club,
+  then his terms), loans, the 1 July - 15 February window, import limits, bids from other clubs for your players, and
+  each summer contracts running out and an academy intake. NHL jobs stay open to you. Then your own lineup and
+  tactics, a board with a target that reviews (and can sack) you, European openings to apply for, AI clubs dealing in
+  the window, and NHL clubs signing your best players for the transfer-agreement fee. A new game can start at a
+  European club (pick a European league in the new-game screen), and AI clubs loan their young players down a level
+  in the window. From Jeremy's testing: the sim centre follows your
+  European league, and the club that fired or sacked you is off your job list for a year.
+
+
+* **v61: from Jeremy's testing of the European club.** A European career starts the day before its league opens
+  (and so does each later season); the club is run on the game's own tabs (Lines, Tactics and Lineups for the
+  lineup; Office, Roster, Contracts, Transfers, Transactions for the rest) instead of separate Club tabs; a display
+  currency with reference rates of November 2026 (docs/CURRENCY.md); and a Russian interface (docs/RUSSIAN.md).

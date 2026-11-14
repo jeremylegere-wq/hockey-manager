@@ -272,7 +272,7 @@ VIEWS.prospects = async () => {
     const t = $("#sc-st-title"), box = $("#sc-stand");
     if (!t || !box) return;
     t.textContent = title;
-    box.innerHTML = rows.length ? `<table class="sc-st">${rows.map((r, i) => `<tr class="${STATE && r.team === STATE.abbr ? "mine" : ""}"><td>${i + 1}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.team || "")}</td><td class="num pts">${esc(String(r.value))}</td></tr>`).join("")}</table>`
+    box.innerHTML = rows.length ? `<table class="sc-st">${rows.map((r, i) => `<tr class="${r.team && r.team === ((this.lead && this.lead.mine) || (STATE && STATE.abbr)) ? "mine" : ""}"><td>${i + 1}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.team || "")}</td><td class="num pts">${esc(String(r.value))}</td></tr>`).join("")}</table>`
       : '<div class="sc-empty">Not enough games yet.</div>';
   };
   Sim.attach = function (mode) {

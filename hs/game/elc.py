@@ -133,6 +133,11 @@ def season_end(conn, season, day):
         conn.execute("UPDATE elc_terms SET earned_total=earned_total+? WHERE player_id=?", (earned, pid))
         earned_by_team[c["team_id"]] = earned_by_team.get(c["team_id"], 0) + earned
         paid += earned
+    from . import vetbonus as VB                    # v61: veterans' one-year bonuses share the cushion and the overage
+    vet = VB.season_end(conn, season)
+    for t, earned in vet.items():
+        earned_by_team[t] = earned_by_team.get(t, 0) + earned
+    vet_paid = sum(vet.values())
     cap = K.crules(conn)["cap_ceiling"]
     overages = 0
     for t, earned in earned_by_team.items():
@@ -145,6 +150,8 @@ def season_end(conn, season, day):
                          (t, season + 1, amount, "bonus overage"))
             overages += 1
     lines = []
+    if vet_paid:
+        lines.append(f"Veterans' one-year bonuses (35+ and injured veterans): ${vet_paid:,.0f} earned.")
     if paid or slid:
         lines.append(f"Entry-level contracts: ${paid:,.0f} in performance bonuses earned"
                      + (f" ({overages} clubs carry a bonus overage into next season)" if overages else "")

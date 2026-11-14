@@ -23,12 +23,37 @@ def _q(conn, sql, args=()):
     return cur.execute(sql, args)
 
 
+_BATCH = None        # (conn, scale_of's answer) while a pass over many players is running (batch())
+
+
+class batch:
+    """`with batch(conn):` around a pass that writes thousands of players (the monthly development step): the engine
+    scale is read once, not once a player, and the table is not re-checked on every call. Nothing else changes."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __enter__(self):
+        global _BATCH
+        ensure_table(self.conn)
+        self.prev, _BATCH = _BATCH, None
+        _BATCH = (self.conn, scale_of(self.conn))
+
+    def __exit__(self, *a):
+        global _BATCH
+        _BATCH = self.prev
+
+
 def ensure_table(conn):
+    if _BATCH is not None and _BATCH[0] is conn:
+        return
     conn.execute(f"CREATE TABLE IF NOT EXISTS player_ratings (player_id INTEGER PRIMARY KEY, "
                  f"{', '.join(c + ' INTEGER' for c in RATING_COLS)})")
 
 
 def scale_of(conn):
+    if _BATCH is not None and _BATCH[0] is conn:
+        return _BATCH[1]
     r = conn.execute("SELECT value FROM pack_info WHERE key='engine_scale'").fetchone()
     if not r:
         return {}, None

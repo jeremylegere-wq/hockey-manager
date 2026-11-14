@@ -170,8 +170,8 @@ def _story(conn, g, goals, leads, stats, stars, sog, win, lose):
                 if n == lg + 1:
                     gw = gl
                     break
-    shutout_g = next((s for s in stats if s["position"] == "G" and s["team_id"] == win
-                      and (s["shots_against"] or 0) > 0 and s["saves"] == s["shots_against"]), None)
+    shutout_g = next((s for s in stats if s["position"] == "G" and s["team_id"] == win and lg == 0     # (the loser scored none:
+                      and (s["shots_against"] or 0) > 0 and s["saves"] == s["shots_against"]), None)  # a perfect relief stint is no shutout)
     star = stars[0] if stars else None
     if hat:
         h = hat[0]

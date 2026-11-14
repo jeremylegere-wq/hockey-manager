@@ -577,6 +577,9 @@ table.mr th { width: 24%; } table.mr tr.dim { opacity: .55; } table.mr td .bar {
 .ts-tpl { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; } .ts-tpl .ts-bg { min-width: 0; padding: 6px 12px; }
 label.chk { display: inline-flex; align-items: center; gap: 6px; } .ts-unemp { margin: 4px 0 10px; font-weight: 700; }
 body.unemployed #nav a:not([data-view="dashboard"]):not([data-view="standings"]):not([data-view="stats"]):not([data-view="news"]):not([data-view="inbox"]) { opacity: .4; pointer-events: none; }
+body.euclub #nav a[data-view="roster"], body.euclub #nav a[data-view="lines"], body.euclub #nav a[data-view="contracts"],
+body.euclub #nav a[data-view="trade"], body.euclub #nav a[data-view="offseason"], body.euclub #nav a[data-view="calendar"] { opacity: 1 !important; pointer-events: auto !important; }
+.eu-note { margin: 0 0 8px; }
 .rbar { display: inline-block; width: 110px; height: 8px; background: var(--zebra); border: 1px solid var(--line); vertical-align: middle; }
 .rbar i { display: block; height: 100%; background: linear-gradient(180deg, #6f93c6, #3f66a3); }
 
@@ -722,3 +725,18 @@ ul.rk-pbp li.goal { background: #fdecec; font-weight: 600; } ul.rk-pbp li.penalt
 .ice.theatre .ice-stage canvas { margin: 0 auto; }
 .ice.theatre .ice-under { display: none; }
 .ice.theatre a { color: #9cc3ff; }
+#ice-live { position: fixed; inset: 0; z-index: 950; background: #0e131b; }
+#ice-live .rk-wait { color: #dfe6ef; padding-top: 30vh; text-align: center; }
+.ice-banner.final { border-left-color: #e9c94a; font-size: 18px; pointer-events: auto; }
+.ice-banner.final a { margin-left: 14px; color: #9cc3ff; }
+/* ---- v59: drag and lock on the lines screen ---- */
+.ln-grip { cursor: grab; color: #7c8ea6; user-select: none; padding: 0 3px; letter-spacing: -3px; }
+.ln-grip:active { cursor: grabbing; }
+.ln-cell.over { outline: 2px dashed #1d4f9e; outline-offset: -2px; background: #eaf1fb; }
+.ln-cell.drag { opacity: .5; }
+.ln-lock { font-size: 10px; padding: 0 5px; line-height: 14px; border: 1px solid var(--line, #b8c4d4); background: #f4f7fb; color: #55657c; border-radius: 8px; cursor: pointer; }
+.ln-lock.on { background: #1d4f9e; color: #fff; border-color: #1d4f9e; }
+
+/* v61: the league picker above the league screens; NHL-only menu entries while you run a European club */
+.lf-bar { margin-bottom: 6px; }
+.mb-entry .lf-nhl { margin-left: 8px; font-style: normal; font-size: 10px; padding: 0 4px; border: 1px solid var(--line, #9aa7b8); border-radius: 3px; color: var(--muted, #6b7785); }

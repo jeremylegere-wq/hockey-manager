@@ -76,7 +76,7 @@ def team_roles(conn, team):
     out = {}
     from . import contracts as K
     for p in conn.execute("SELECT p.player_id, p.position, p.birth_date, a.* FROM players p JOIN player_attributes a USING (player_id) "
-                          "WHERE p.team_id=? AND p.status IN ('active','injured','ltir','prospect')", (team,)):
+                          f"WHERE {__import__('hs.game.state', fromlist=['x']).member_sql(conn, team, 'p.')} AND p.status IN ('active','injured','ltir','prospect')", (team,)):
         a = {k: p[k] for k in p.keys()}
         role, fit = major_role(a, p["position"])
         b = datetime.date.fromisoformat(p["birth_date"])
@@ -90,13 +90,34 @@ def team_roles(conn, team):
     return out
 
 
-def line_notes(roles, line, d=False):
+def league_shift(conn, team):
+    """v61: for a European club, how far its league sits below the NHL on the three composites (shot, pas, dfn), so
+    a line is judged against its own league; {} for an NHL club."""
+    lid = conn.execute("SELECT league_id FROM teams WHERE team_id=?", (team,)).fetchone()
+    from ..schema import top_league_sql
+    if lid is None or conn.execute(f"SELECT 1 FROM teams WHERE team_id=? AND {top_league_sql()}", (team,)).fetchone():
+        return {}
+    keys = {"shot": ("shot_accuracy", "shot_power"), "pas": ("passing", "puck_control"), "dfn": ("defensive_awareness", "positioning")}
+
+    def means(where, args=()):
+        rows = conn.execute("SELECT a.* FROM players p JOIN player_attributes a USING (player_id) WHERE p.status IN ('active','injured') "
+                            f"AND p.position<>'G' AND {where}", args).fetchall()
+        if not rows:
+            return None
+        return {k: statistics.fmean(statistics.fmean((r[c] or 10) for c in cs) for r in rows) for k, cs in keys.items()}
+    nhl = means(f"p.team_id IN (SELECT team_id FROM teams WHERE {top_league_sql()})")
+    lg = means("p.team_id IS NULL AND p.club_id IN (SELECT team_id FROM teams WHERE league_id=?)", (lid[0],))
+    return {k: max(0.0, nhl[k] - lg[k]) for k in keys} if nhl and lg else {}
+
+
+def line_notes(roles, line, d=False, shift=None):
     """What a line (or a pair) lacks, in a few words: judged on the ratings (a finisher shoots 12+, a playmaker passes
     12+, a defensive conscience reads the game 11+; a pair needs a puck mover and a stay-at-home side)."""
     rs = [roles.get(p) for p in line if p and roles.get(p)]
     if not rs:
         return []
-    best = lambda k: max(r[k] for r in rs)
+    sh = shift or {}
+    best = lambda k: max(r[k] for r in rs) + sh.get(k, 0.0)            # (v61: a European club, against its league)
     notes = []
     if d:
         if best("dfn") < 11:

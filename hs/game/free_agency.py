@@ -403,6 +403,11 @@ def auction(conn, day):
                                 detail=f"signed as free agent ({_clock(hour)}{', ' + note if note else ''})")
             except R.RosterError:
                 continue
+            if t != me and years == 1:                    # v61: a club against the cap may make it base plus bonuses
+                from . import vetbonus as VB
+                c_ = K.last_contract(conn, pid)
+                if c_ is not None and VB.ai_restructure(conn, pid, t, c_["contract_id"]):
+                    aav = conn.execute("SELECT cap_hit FROM contracts WHERE contract_id=?", (c_["contract_id"],)).fetchone()[0]
             if panic:
                 conn.execute("UPDATE contracts SET no_trade=1 WHERE player_id=? AND team_id=? AND start_year=?",
                              (pid, t, year))

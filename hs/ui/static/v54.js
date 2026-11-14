@@ -5,15 +5,16 @@
 // trend, the owner's quarterly reports, the league) and the cash statement. Data: hs/game/accounts.py.
 
 const PNL = {fy: "", period: "", columns: "total", compare: "budget", level: 3, zero: false, units: "M", drill: null};
-const PNL_UNITS = {M: [1e6, 2, "$M"], K: [1e3, 0, "$000"], D: [1, 0, "$"]};
+const PNL_UNITS = {M: [1e6, 2, "M"], K: [1e3, 0, "000"], D: [1, 0, ""]};       // (v61: in the display currency; see pnlNum)
+const pnlUnit = (k) => curSym() + PNL_UNITS[k][2];
 const pnlNum = (v, kind) => {
   if (v == null) return "";
   if (kind === "pct") return `${v.toFixed(1)}%`;
   const [div, dp] = PNL_UNITS[PNL.units];
-  const x = Math.abs(v / div).toLocaleString(undefined, {minimumFractionDigits: dp, maximumFractionDigits: dp});
+  const x = Math.abs(fxv(v) / div).toLocaleString(uiLocale(), {minimumFractionDigits: dp, maximumFractionDigits: dp});
   return v < 0 ? `(${x})` : x;
 };
-const fmtM = (v) => v == null ? "-" : `${v < 0 ? "-" : ""}$${(Math.abs(v) / 1e6).toFixed(1)}M`;
+const fmtM = (v) => money(v, "USD", {millions: true, digits: 1});
 
 async function pnlTab() {
   const q = {columns: PNL.columns, compare: PNL.compare, level: PNL.level};
@@ -33,7 +34,7 @@ async function pnlTab() {
     <label>Compare with <select id="pnl-cmp"${PNL.columns !== "total" ? " disabled" : ""}>${[["none", "Nothing"], ["budget", "Budget"], ["prior", "Last year"], ["both", "Budget and last year"]].map(([v, l]) => opt(v, l, PNL.compare)).join("")}</select></label>
     <label>Levels <select id="pnl-lvl">${[[1, "1 sections"], [2, "2 groups"], [3, "3 accounts"]].map(([v, l]) => opt(v, l, PNL.level)).join("")}</select></label>
     <label><input type="checkbox" id="pnl-zero"${PNL.zero ? " checked" : ""}> Zero lines</label>
-    <label>Units <select id="pnl-units">${Object.entries(PNL_UNITS).map(([k, v]) => opt(k, v[2], PNL.units)).join("")}</select></label>
+    <label>Units <select id="pnl-units">${Object.entries(PNL_UNITS).map(([k, v]) => opt(k, pnlUnit(k), PNL.units)).join("")}</select></label>
     <span class="spacer"></span><button id="pnl-print">Print</button></div>`;
   const head = `<tr><th>Account</th>${d.columns.map((c) => `<th class="num">${esc(c.label)}</th>`).join("")}</tr>`;
   const body = d.rows.map((r) => {
@@ -45,7 +46,7 @@ async function pnlTab() {
     const label = r.kind === "subtotal" ? esc(r.name) : `<span class="pnl-code">${esc(r.code)}</span> ${esc(r.name)}`;
     return `<tr class="pnl-${r.kind} pnl-l${r.level}${r.drill ? " pnl-drill" : ""}"${r.drill ? ` data-drill="${r.drill}" title="Show the journal lines"` : ""}><td>${label}</td>${cells}</tr>`;
   }).join("");
-  const note = `<p class="muted small">${esc(d.note)} Amounts in ${PNL_UNITS[PNL.units][2]}; costs in brackets. Click a line for its journal entries.
+  const note = `<p class="muted small">${esc(d.note)} Amounts in ${pnlUnit(PNL.units)}; costs in brackets. Click a line for its journal entries.
     ${d.budget ? `<br>Budget: ${esc(d.budget.status)}, drawn up ${dshort(d.budget.built)}. ${esc(d.budget.note)}.` : ""}</p>`;
   const tbl = `<div class="pnl-wrap"><table class="pnl nosort">${head}${body}</table></div>`;
   let jr = "";
@@ -55,7 +56,7 @@ async function pnlTab() {
       jr = panel(`Journal: ${j.code} ${j.name}, ${j.period_label}`, j.lines.length ? `<div class="scroll" style="max-height:420px">${table(j.lines,
         [{key: "day", label: "Date", fmt: (r) => dshort(r.day)}, {key: "account", label: "Account", fmt: (r) => `${r.account} ${esc(r.account_name)}`},
          {key: "detail", label: "Detail"}, {key: "amount", label: "Amount", num: true, fmt: (r) => pnlNum(r.amount)}])}</div>
-         <p class="muted small">${j.count} lines, total ${pnlNum(j.total)} ${PNL_UNITS[PNL.units][2]}${j.count > j.lines.length ? ` (the last ${j.lines.length} shown)` : ""}.</p>` : empty("No entries in the period."),
+         <p class="muted small">${j.count} lines, total ${pnlNum(j.total)} ${pnlUnit(PNL.units)}${j.count > j.lines.length ? ` (the last ${j.lines.length} shown)` : ""}.</p>` : empty("No entries in the period."),
         `<a id="pnl-close">close</a>`);
     } catch (e) { PNL.drill = null; }
   }
@@ -98,7 +99,7 @@ async function boardTab() {
     <span class="muted small">budget ${fmtM(x.budget)} · ${x.var >= 0 ? "+" : ""}${fmtM(x.var)}</span><span class="muted small">forecast ${fmtM(x.forecast)}</span></div>`;
   const tiles = `<div class="fin-proj fin-kpi">${tile("revenue", k.revenue)}${tile("EBITDA", k.ebitda)}${tile("net profit", k.net)}
     <div><b>${fmtM(d.cash)}</b><span>cash</span><span class="muted small">${d.payroll_share != null ? `players ${d.payroll_share}% of revenue` : ""}</span>
-    <span class="muted small">${d.fill != null ? `${(d.fill * 100).toFixed(1)}% full` : ""}${d.per_fan ? ` · $${d.per_fan} a fan` : ""}</span></div></div>`;
+    <span class="muted small">${d.fill != null ? `${(d.fill * 100).toFixed(1)}% full` : ""}${d.per_fan ? ` · ${money(d.per_fan)} a fan` : ""}</span></div></div>`;
   const rows = [["Revenue", "revenue"], ["Hockey operations", "hockey"], ["Operating expenses", "opex"], ["EBITDA", "ebitda"], ["Net profit", "net"]];
   const kt = `<table class="pnl nosort"><tr><th></th><th class="num">Actual</th><th class="num">Budget</th><th class="num">Variance</th><th class="num">Forecast</th><th class="num">Full-year budget</th></tr>
     ${rows.map(([l, key]) => { const x = k[key]; return `<tr class="${key === "net" || key === "ebitda" ? "pnl-subtotal" : ""}"><td>${l}</td><td class="num">${fmtM(x.actual)}</td><td class="num">${fmtM(x.budget)}</td>

@@ -239,5 +239,6 @@ pour vous : voir BUILD_YOUR_OWN.md. Rien de réel n'est livré.
 **Puis-je annuler ?** Les copies de secours automatiques (Fichier > Copies de secours) en restaurent une comme nouvelle
 sauvegarde. Les carrières sont de simples fichiers ; copiez-en un avant une décision risquée.
 
-**Un résultat me semble faux.** Ce pourrait être un bogue. Aide > Signaler un bogue, ou écrivez à
-jeremy.legere@gmail.com avec le fichier de sauvegarde.
+**Un résultat me semble faux.** Ce pourrait être un bogue. Aide > Signaler un bogue, ou ouvrez un ticket
+sur la [page des tickets GitHub](https://github.com/jeremylegere-wq/hockey-manager/issues) avec le fichier de sauvegarde
+en pièce jointe.

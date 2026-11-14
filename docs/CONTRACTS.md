@@ -67,3 +67,23 @@ Waivers: docs/WAIVERS.md. LTIR: docs/LTIR.md.
 Group 6 UFAs, bonuses on standard contracts (entry-level bonuses: CONTRACT_ENGINE.md section 8),
 cap floor enforcement, bidding between clubs for one free agent, morale effects of arbitration (hook: the
 `arbitration` rows in `transactions`).
+
+## Veterans' performance bonuses (v61)
+
+Besides entry-level contracts, a **one-year** contract may carry performance bonuses when the player is **35 or
+older** on 30 June before that season, or is an **injured veteran** (400+ NHL games and 100+ days injured last
+season). This follows CBA 50.2(b)(i).
+
+* **In talks.** The talks screen shows a *Performance bonuses* box for these players (console:
+  `propose <player> <aav> 1 perf=2m`). He counts a bonus dollar as about 60 cents of salary. A bonus-heavy deal
+  therefore costs more in total but less against the cap. At most 75% of the deal can be bonuses.
+* **The cap.** Bonuses are not in the cap hit. A club may go past the ceiling through performance bonuses by the
+  **bonus cushion** (7.5% of the ceiling), counting everything it could still owe, entry-level bonuses included.
+  What earned bonuses push past the ceiling comes off next season's cap as a **bonus overage**.
+* **Earning them.** At season end, a quarter each. Skaters: 10 games, 41 games, 25 points (forward) or 15
+  (defenceman), and the club making the playoffs. Goalies: 10 games, 25 games, a .905 save percentage, and the
+  playoffs. The player's Contract tab shows the bonus and what was earned.
+* **AI clubs.** An AI club within 4% of the cap that signs a 35+ veteran to one year often (55%) turns 30-60% of his
+  salary into bonuses.
+
+Code: `hs/game/vetbonus.py`. Scoring runs with the entry-level bonuses in `hs/game/elc.py`.

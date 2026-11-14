@@ -106,4 +106,5 @@ and "Write your own adapter" if you want to automate it.
   computer. Do not upload it to GitHub, a forum, a drive or a torrent. Send people to the original tool and teach them
   to make their own with this page instead.
 
-Trouble? jeremy.legere@gmail.com, or Help > Report a bug in the game.
+Trouble? Open an issue on the [GitHub issues page](https://github.com/jeremylegere-wq/hockey-manager/issues), or use
+Help > Report a bug in the game.

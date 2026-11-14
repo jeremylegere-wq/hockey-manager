@@ -14,7 +14,7 @@ import json
 
 from . import roster as R
 from .events import player_name
-from .state import get_state, user_team
+from .state import get_state, user_team, member_sql
 
 SLOTS = {"F": (4, 3), "D": (3, 2), "PP": (2, 5), "PK": (2, 4), "OT3": (2, 3), "OT4": (2, 4)}
 F_LABELS, D_LABELS = ("C", "LW", "RW"), ("LD", "RD")
@@ -32,8 +32,8 @@ def saved(conn, team):
 
 def current(conn, team):
     """The lineup the engine would use today, as ids: {"F", "D", "G", "PP", "PK", "custom", "replaced"}."""
-    from ..sim.loader import load_teams
-    t = load_teams(conn).get(team)
+    from ..sim.loader import load_teams, load_club
+    t = load_club(conn, team) if member_sql(conn, team) != "team_id=?" else load_teams(conn).get(team)
     if t is None:
         return None
     return dict(F=[[p.pid for p in ln] for ln in t.lines], D=[[p.pid for p in pr] for pr in t.pairs],
@@ -58,7 +58,7 @@ def reset(conn, team):
 def validate(conn, team, lu):
     errs = []
     rows = {r["player_id"]: r for r in conn.execute("SELECT player_id, position, status, team_id FROM players WHERE "
-                                                    "team_id=?", (team,))}
+                                                    + member_sql(conn, team), (team,))}
     seen = set()
     for key in ("F", "D"):
         for unit in lu.get(key, []):
@@ -176,7 +176,7 @@ def set_tendency(conn, team, pid, value):
     kind = next((k for k, vs in TENDENCIES.items() if value in vs), None)
     if kind is None:
         raise R.RosterError("Tendencies: shoot first, pass first, attacking, defensive, normal.")
-    if not conn.execute("SELECT 1 FROM players WHERE player_id=? AND team_id=?", (pid, team)).fetchone():
+    if not conn.execute(f"SELECT 1 FROM players WHERE player_id=? AND {member_sql(conn, team)}", (pid, team)).fetchone():
         raise R.RosterError("He is not on your club.")
     lu = saved(conn, team) or {k: v for k, v in (current(conn, team) or {}).items() if k in ("F", "D", "G", "PP", "PK", "OT3", "OT4")}
     tend = lu.setdefault("tend", {})

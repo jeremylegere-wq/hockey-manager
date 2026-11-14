@@ -21,6 +21,19 @@ import shutil
 import threading
 import traceback
 import webbrowser
+
+ISSUES_URL = "https://github.com/jeremylegere-wq/hockey-manager/issues"
+
+
+def _eu_or(c, q, fn):
+    """v61: a game id from your European club's engine games (hs/game/eu_match.py) is shown through a view of its own
+    tables in place of the NHL's; any other id as before."""
+    from hs.game import eu_match as EM
+    gid = int(q["id"])
+    if not EM.is_eu(gid):
+        return fn(c, gid)
+    with EM.shadow(c, gid):
+        return fn(c, gid)
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -58,7 +71,7 @@ VIEWS = {
     "teams": lambda c, q: api.teams_list(c),
     "scouting": lambda c, q: api.scouting_view(c),
     "news": lambda c, q: api.news_view(c, q.get("scope", "club")),
-    "game": lambda c, q: api.game_view(c, int(q["id"])),
+    "game": lambda c, q: _eu_or(c, q, lambda c2, gid: api.game_view(c2, gid)),
     "trade": lambda c, q: api.trade_view(c, q.get("team")),
     "lines": lambda c, q: api.lines_view(c),
     "staff": lambda c, q: api.staff_view(c, q.get("role")),
@@ -83,7 +96,7 @@ VIEWS = {
     "arena": lambda c, q: __import__("hs.game.arena", fromlist=["x"]).view(c, _me(c)) if not q.get("seats") else
              __import__("hs.game.arena", fromlist=["x"]).quote(c, _me(c), q.get("seats"), q.get("quality") or 90),
     "ownergoals": lambda c, q: __import__("hs.game.owner_goals", fromlist=["x"]).view(c, _me(c)),
-    "troles": lambda c, q: __import__("hs.game.troles", fromlist=["x"]).view(c, _me(c)),
+    "troles": lambda c, q: __import__("hs.game.troles", fromlist=["x"]).view(c),
     "pnl": lambda c, q: __import__("hs.game.accounts", fromlist=["x"]).pnl(c, _me(c), q.get("fy"), q.get("period"), q.get("columns") or "total",
                                                                          q.get("compare") or "none", q.get("level") or 3, q.get("zero") != "1"),
     "journal": lambda c, q: __import__("hs.game.accounts", fromlist=["x"]).journal(c, _me(c), q.get("fy"), q.get("code"), q.get("period")),
@@ -95,6 +108,7 @@ VIEWS = {
     "commish": lambda c, q: __import__("hs.game.commissioner", fromlist=["x"]).view(c, q.get("a"), q.get("b")),
     "college": lambda c, q: __import__("hs.game.college", fromlist=["x"]).view(c, q.get("program")),
     "expansion": lambda c, q: __import__("hs.game.expansion", fromlist=["x"]).view(c),
+    "focusleagues": lambda c, q: api.focus_leagues(c),
     "worldleagues": lambda c, q: __import__("hs.game.leagues", fromlist=["x"]).world_leagues_view(c, q.get("league"), q.get("season")),
     "playerx": lambda c, q: api.player_extras(c, int(q["id"])),
     "press": lambda c, q: api.press_view(c),
@@ -118,7 +132,7 @@ VIEWS = {
     "depth": lambda c, q: SC.depth_chart(c, q.get("team")),
     "txnlog": lambda c, q: SC.txn_log(c, q.get("season"), q.get("team"), q.get("kind", "")),
     "milestones": lambda c, q: SC.milestones(c),
-    "reports": lambda c, q: SC.reports(c, q.get("kind", "positional")),
+    "reports": lambda c, q: SC.reports(c, q.get("kind", "positional"), q.get("year")),
     "draftlog": lambda c, q: SC.draft_log(c, q.get("year")),
     "season": lambda c, q: SC.season_page(c, q.get("year")),
     "rules": lambda c, q: SC.rules_view(c),
@@ -137,8 +151,9 @@ VIEWS = {
     "manager": lambda c, q: MG.manager_view(c),
     "assistant": lambda c, q: __import__("hs.game.assistant", fromlist=["x"]).suggestions(c),
     "find": lambda c, q: SC.player_search(c, q),
-    "track": lambda c, q: __import__("hs.sim.rink2d", fromlist=["x"]).track(c, int(q["id"])),
-    "track2": lambda c, q: __import__("hs.sim.ice2d", fromlist=["x"]).track(c, int(q["id"])),      # v59: the rebuilt 2D game
+    "track": lambda c, q: _eu_or(c, q, lambda c2, gid: __import__("hs.sim.rink2d", fromlist=["x"]).track(c2, gid)),
+    "leagueplay": lambda c, q: __import__("hs.game.leagues", fromlist=["x"]).selection(c),      # v60: which leagues play game by game
+    "track2": lambda c, q: _eu_or(c, q, lambda c2, gid: __import__("hs.sim.ice2d", fromlist=["x"]).track(c2, gid)),      # v59: the rebuilt 2D game
     # v37, phase F: the calendar
     "rivalries": lambda c, q: __import__("hs.game.rivalry", fromlist=["x"]).view(c, int(q.get("team") or __import__("hs.game.state", fromlist=["x"]).user_team(c))),
     "exhibitions": lambda c, q: __import__("hs.game.exhibitions", fromlist=["x"]).exhibitions_view(c, q.get("kind") or None, q.get("year")),
@@ -149,12 +164,19 @@ VIEWS = {
     "gmleaders": lambda c, q: __import__("hs.game.legacy", fromlist=["x"]).gm_leaders(c),
     "achievements": lambda c, q: __import__("hs.game.legacy", fromlist=["x"]).achievements_view(c),
     "simleaders": lambda c, q: SC.sim_leaders(c),
+    # v61: running a European club
+    "euclub": lambda c, q: __import__("hs.game.europe", fromlist=["x"]).view(c),
+    "eumarket": lambda c, q: __import__("hs.game.europe", fromlist=["x"]).market(
+        c, pos=q.get("pos") or None, age_max=int(q["age"]) if q.get("age") else None,
+        fee_max=int(q["fee"]) if q.get("fee") else None, free_only=q.get("free") == "1", limit=int(q.get("limit") or 150)),
 }
 NO_GAME_OK = {"state"}
-UNEMPLOYED_OK = {"intl", "discipline", "college", "worldleagues", "hof", "legacy", "expansion", "retirednumbers", "state", "jobs", "manager", "gm", "news", "newsfeed", "standings", "standings2", "stats", "player", "playerx", "card", "team",
-                 "teams", "leagueday", "season", "reports", "milestones", "draftlog", "rules", "search", "article", "game", "track", "track2",
+UNEMPLOYED_OK = {"focusleagues", "calendar", "schedule", "analytics", "history", "intl", "discipline", "college", "worldleagues", "hof", "legacy", "expansion", "retirednumbers", "state", "jobs", "manager", "gm", "news", "newsfeed", "standings", "standings2", "stats", "player", "playerx", "card", "team",
+                 "teams", "leagueday", "season", "reports", "milestones", "draftlog", "rules", "search", "article", "game", "track", "track2", "leagueplay",
                  "inbox", "inbox2", "strip", "playoffs", "leaguehistory", "worldleagues", "expansion", "college", "challenge", "commish", "retirednumbers", "intl", "lineups", "discipline", "find", "teaminfo", "txnlog", "transactions", "playermarks", "notes", "calendar", "people", "devchart",
-                 "exhibitions", "exbox", "allstar", "hof", "legacy", "gmleaders", "achievements", "simleaders"}
+                 "exhibitions", "exbox", "allstar", "hof", "legacy", "gmleaders", "achievements", "simleaders", "euclub", "eumarket",
+                 "lines", "troles", "tactics"}                 # (v61: the European club you run picks its lines)
+SQUAD_VIEWS = {"lines", "troles", "tactics"}
 
 
 class Game:
@@ -255,7 +277,9 @@ class Game:
                 if name == "state":
                     return dict(started=False, loaded=False, saves=bool(self.saves))
                 raise RuntimeError("No game is loaded.")
-            if name not in UNEMPLOYED_OK and self.cli.conn.execute("SELECT team_id FROM manager WHERE id=1").fetchone()[0] is None:
+            from hs.game.state import squad_team
+            if (name not in UNEMPLOYED_OK or (name in SQUAD_VIEWS and squad_team(self.cli.conn) is None)) and \
+                    self.cli.conn.execute("SELECT team_id FROM manager WHERE id=1").fetchone()[0] is None:
                 raise RuntimeError("You are out of work: that screen needs a club. The Job Centre lists the clubs looking for a GM.")
             out = VIEWS[name](self.cli.conn, q)
             if name == "state":
@@ -449,7 +473,7 @@ class Game:
         return n, skipped, dest
 
     # ---- saves
-    def saves_list(self, world=None):
+    def saves_list(self, world=None, league=None):
         if not self.saves:
             return dict(enabled=False, current=Path(self.db).stem if self.db else None)
         try:
@@ -458,6 +482,7 @@ class Game:
             world = None
         return dict(enabled=True, saves=self.saves.list(self.db), teams=self.saves.teams(world), leagues=self.saves.leagues(world),
                     worlds=self.saves.worlds(), world=world or "",
+                    eu_teams=self.saves.eu_teams(league, world) if league else [],
                     backgrounds={k: dict(label=v[0], text=v[1]) for k, v in __import__("hs.game.gm", fromlist=["x"]).BACKGROUNDS.items()},
                     manager=MG.setup_options(),
                     current=Path(self.db).stem if self.db else None, folder=str(self.saves.folder))
@@ -551,11 +576,13 @@ def make_handler(game):
         def do_GET(self):
             u = urlparse(self.path)
             if u.path == "/api/saves":
-                return self._send(200, game.saves_list((parse_qs(u.query).get("world") or [None])[0] or None))
+                q = parse_qs(u.query)
+                lg = (q.get("league") or [None])[0]
+                return self._send(200, game.saves_list((q.get("world") or [None])[0] or None, int(lg) if lg and lg.isdigit() else None))
             if u.path == "/api/settings":
                 return self._send(200, settings.load(game.settings_path()))
             if u.path == "/api/app":
-                return self._send(200, dict(desktop=game.desktop is not None, version=settings.VERSION))
+                return self._send(200, dict(desktop=game.desktop is not None, version=settings.VERSION, build=settings.BUILD))
             if u.path == "/api/simstatus":
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
                 return self._send(200, game.sim.status(int(q.get("since", 0))))
@@ -610,6 +637,12 @@ def make_handler(game):
                     self._send(200, dict(ok=True))
                     threading.Thread(target=game.quit, daemon=True).start()
                     return None
+                if path == "/api/open":                     # v61: Report a bug opens the GitHub issues page in your browser
+                    url = str(body.get("url", ""))
+                    if not url.startswith(ISSUES_URL):
+                        return self._send(400, dict(error="Only the game's GitHub issues page can be opened."))
+                    threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
+                    return self._send(200, dict(ok=True))
                 if path == "/api/title":                    # the desktop window's title follows the career
                     if game.desktop is not None:
                         game.desktop.set_title(str(body.get("title", ""))[:120])
