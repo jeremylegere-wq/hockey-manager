@@ -12,7 +12,7 @@
 
 ## Checks
 
-CI (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request. Run the same locally from the
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request: the repository checks, the tests on Python 3.9 and 3.13 (Ubuntu 24.04), and the tests on Windows (report only for now; see the comment in the workflow). Run the same locally from the
 repository root; there is nothing to install.
 
 ```bash
