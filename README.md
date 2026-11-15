@@ -193,3 +193,4 @@ route) sont en anglais.
 
 <sub>Mots-clés : jeu de gestion de hockey, simulateur de directeur général de hockey, mode franchise de style LNH, jeu de
 gestion sportive hors ligne, jeu de hockey libre, simulation de hockey en Python, éditeur de base de données de hockey.</sub>
+<meta name="google-site-verification" content="43J2GvZUxDfvrAZdiF3FqrXplaYB26KxnaoAfqFlryU" />
