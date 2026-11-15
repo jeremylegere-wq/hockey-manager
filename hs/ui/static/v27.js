@@ -528,7 +528,10 @@ VIEWS.rights = async () => {
 };
 const War = {
   async view() {
-    const d = await api("warroom");
+    let d;
+    try { d = await api("warroom"); } catch (err) {
+      return panel("Free agency war room", `<p class="neg">The war room could not open: ${esc(String(err && err.message || err))}</p><p class="muted">Use Help &gt; Report a bug with this screen open. Meanwhile the Offseason screen still lists the free agents.</p>`);
+    }
     const tabs = `<div class="tabs"><a class="btn" href="#offseason">Offseason</a> <a class="btn" href="#rights">Your expiring contracts</a> <a class="btn active" href="#warroom">Free agency war room</a></div>`;
     if (d.phase === "rights") return tabs + panel("Free agency war room", `<p>The market opens at noon on 1 July. Line up offers now on the Offseason screen (upcoming free agents), or wait for the market.</p>`);
     if (!d.open && !d.last) return tabs + panel("Free agency war room", `<p class="muted">${d.phase === "free_agency" ? "The auction is over: the remaining free agents sign at their asks (Offseason screen)." : "Free agency opens on 1 July."}</p>` +
@@ -583,13 +586,14 @@ document.addEventListener("click", async (e) => {                    // leaving 
   if (!b) return;
   e.stopImmediatePropagation(); e.preventDefault();                   // decide first (the checks below are async)
   const ph = STATE && STATE.phase;
-  let msg = null;
+  let msg = null, force = false;
   try {
     if (ph === "draft") { const d = await api("draft"); if (d.my_left) msg = `You still have ${d.my_left} pick${d.my_left === 1 ? "" : "s"}. Your scouts will make ${d.my_left === 1 ? "it" : "them"}. Move on?`; }
     else if (ph === "rights") { const d = await api("rights"); if (d.undecided) msg = `${d.undecided} expiring contract${d.undecided === 1 ? "" : "s"} undecided: RFAs get qualified automatically, UFAs walk. Move on?`; }
-    else if (ph === "free_agency") { const d = await api("warroom"); if (d.running) msg = "The free-agency auction is still running. The rest of the day runs without you. Move on?"; }
+    else if (ph === "free_agency") { const d = await api("warroom"); if (d.running) { msg = "The free-agency auction is still open. If you move on now, the rest of it runs without you and you will not see the war room. Move on?"; force = true; } }
   } catch (err) { /* fall through */ }
-  if (!msg || (typeof SETTINGS !== "undefined" && !SETTINGS.confirm_phase) || (await ask(msg, {ok: "Move on"}))) phaseAdvance(!!msg);
+  // the auction is the one phase the player must not skip by accident, so that warning ignores the "confirm phases" setting
+  if (!msg || (!force && typeof SETTINGS !== "undefined" && !SETTINGS.confirm_phase) || (await ask(msg, {ok: "Move on"}))) phaseAdvance(!!msg);
 }, true);
 
 /* ================================================================ GM profile and setup */

@@ -379,7 +379,7 @@ def user_pick(conn, pid, day):
     make_pick(conn, year, nxt["overall"], me, pid, day)
     if live_draft(conn):
         conn.commit()
-        return [f"You selected {conn.execute('SELECT first_name||chr(32)||last_name FROM players WHERE player_id=?', (pid,)).fetchone()[0]}."]
+        return [f"You selected {conn.execute('SELECT first_name||char(32)||last_name FROM players WHERE player_id=?', (pid,)).fetchone()[0]}."]
     return advance_picks(conn, day, stop_for_user=True)
 
 
@@ -641,12 +641,22 @@ def rankings(conn, year=None):
     return out
 
 
+def board_slide(conn, year):
+    """How far the best player on the board has slid past his expected slot (prices the pick on the clock)."""
+    nxt = conn.execute("SELECT MIN(overall) FROM draft_picks WHERE draft_year=? AND player_id IS NULL", (year,)).fetchone()[0]
+    pool = eligible_rows(conn, year)
+    if nxt is None or not pool:
+        return 0
+    _Board(conn, year, pool)                               # ranks the pool (adds expected_slot), as the pickswap command does
+    return max(0, nxt - min(pool, key=lambda x: x["expected_slot"])["expected_slot"])
+
+
 # ---------------- v30 (defect 22): deals on draft day
 def pick_deals(conn):
     """For the user, while the draft runs: what it would take to get the pick on the clock (from your picks, at the
     chart), and when you are on the clock, trade-down offers from clubs picking soon after (their pick plus another
     to make up the chart). Executed with pickswap (hs.game.draft_floor)."""
-    from .draft_floor import chart
+    from .draft_floor import chart, live_multiplier
     year = draft_year(conn)
     me = user_team(conn)
     rows = conn.execute("SELECT overall, team_id FROM draft_picks WHERE draft_year=? AND player_id IS NULL ORDER BY overall", (year,)).fetchall()
@@ -656,7 +666,8 @@ def pick_deals(conn):
     mine = [o for o, t in rows if t == me]
     out = dict(buy=None, down=[])
     if owner != me and mine:
-        need = chart(now) * 1.1                              # they want a little more to give up the pick they are on
+        m_live = live_multiplier(board_slide(conn, year))    # pickswap prices the pick on the clock at this multiple
+        need = chart(now) * max(1.1, m_live) * 1.02          # they want a little more to give up the pick they are on
         singles = [o for o in mine if chart(o) >= need]
         if singles:
             give = [max(singles)]
@@ -668,7 +679,7 @@ def pick_deals(conn):
                         give = [a, b]
         if give:
             out["buy"] = dict(team_id=owner, abbr=team_abbr_(conn, owner), get=[now], give=give,
-                              value_in=round(sum(chart(x) for x in give)), value_out=round(chart(now)))
+                              value_in=round(sum(chart(x) for x in give)), value_out=round(chart(now) * m_live))
     if owner == me:
         val = chart(now)
         seen = set()
@@ -676,8 +687,9 @@ def pick_deals(conn):
             if t == me or t in seen:
                 continue
             seen.add(t)
-            theirs = sorted((x for x, tt in rows if tt == t and x != o), reverse=True)   # their latest pick that covers it
-            add = next((x for x in theirs if chart(o) + chart(x) >= val), None)
+            # the offer must be one pickswap accepts: what they give (o + add) cannot be worth more than your pick on the chart
+            theirs = sorted((x for x, tt in rows if tt == t and x != o), key=lambda x: -chart(x))
+            add = next((x for x in theirs if chart(o) + chart(x) <= val), None)
             if add:
                 out["down"].append(dict(team_id=t, abbr=team_abbr_(conn, t), give=[now], get=[o, add],
                                         value_in=round(chart(o) + chart(add)), value_out=round(val)))

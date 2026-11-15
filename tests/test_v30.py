@@ -144,7 +144,7 @@ class DraftTests(WorldBase):
         self.assertIsNone(d["buy"])                                                # we are on the clock
         self.assertTrue(d["down"])
         for o in d["down"]:
-            self.assertGreaterEqual(o["value_in"], o["value_out"])
+            self.assertLessEqual(o["value_in"], o["value_out"])        # they give no more than your pick is worth, or pickswap refuses
             self.assertEqual(o["give"], [1])
 
 

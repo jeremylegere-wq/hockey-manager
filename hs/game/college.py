@@ -604,7 +604,8 @@ def open_market(conn, day, y):
                     f"The college season is over and {n} undrafted players are leaving school to turn pro. The best:\n"
                     + "\n".join(f"- {x}" for x in names) + f"\nThey decide on {decide_by}. Offer an entry-level deal on College Hockey "
                     "> Free agents (or `college offer <player> [now]`); starting the deal now lets him play for us this season.",
-                    sender="Director of Amateur Scouting")
+                    sender="Director of Amateur Scouting",
+                    actions=[dict(label="College free agents", href="#college/fa", primary=True)])
     return [f"College free agents: {n} on the market until {decide_by}."] if n else []
 
 

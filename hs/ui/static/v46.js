@@ -3,6 +3,7 @@
 
 const CH = {tab: "programs"};
 VIEWS.college = async (arg) => {
+  if (["programs", "recruiting", "mine", "fa"].includes(arg)) { CH.tab = arg; arg = null; }   // an inbox button opens a tab
   const d = await api("college", arg ? {program: arg} : {});
   if (!d.active) return panel("College hockey", empty("This world has no college league."));
   if (arg && d.program) {

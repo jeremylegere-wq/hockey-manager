@@ -6,6 +6,19 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
 
 ## [Unreleased]
 
+### Fixed
+- Draft: making your pick in the draft room made the pick, then failed with an error (a SQL function SQLite does not
+  have), so it looked as if the pick had not happened (issue #32).
+- Draft: the "Make the trade" and trade-down "Accept" offers on draft day were offers the AI then refused; every offer
+  shown is now one it accepts, and the price of the pick on the clock includes the live-board premium (issue #32).
+- Contract talks: the window no longer hangs on "Calling his agent" when talks are blocked; it says why, and a failed
+  call shows the error (issue #34).
+- Inbox: the arbitration button names the player instead of showing a player id (issue #33); the college free agents
+  message has a button that opens College Hockey on the Free agents tab (issue #31).
+- LTIR screen: the command-line listing of players on long-term injured reserve failed on the same SQL function.
+- Free agency: moving on from the war room while the auction is still open always asks first, even with "confirm
+  phase changes" off, and the war room shows an error instead of a blank page if it cannot open (issue #35; see below).
+
 ## [0.61] - 2026-11-15
 
 ### Added

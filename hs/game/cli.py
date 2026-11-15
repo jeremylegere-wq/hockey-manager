@@ -497,7 +497,7 @@ class CLI(cmd.Cmd):
             return
         rows = LT.active(self.conn, me)
         for x in rows:
-            self.p(f"  {self.conn.execute('SELECT first_name||chr(32)||last_name FROM players WHERE player_id=?', (x['player_id'],)).fetchone()[0]:<24}"
+            self.p(f"  {self.conn.execute('SELECT first_name||char(32)||last_name FROM players WHERE player_id=?', (x['player_id'],)).fetchone()[0]:<24}"
                    f"${x['cap_hit']:>11,.0f}  since {x['placed']}  earliest return {x['earliest']}")
         cap = K.crules(self.conn)["cap_ceiling"]
         self.p(("Nobody on LTIR." if not rows else "") + (f" Ceiling ${LT.ceiling(self.conn, me):,.0f} (cap ${cap:,.0f}); "

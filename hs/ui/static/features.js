@@ -108,17 +108,23 @@ const Talks = {
   async open(pid) {
     this.pid = pid;
     Modal.open('<p class="muted">Calling his agent...</p>', "talks");
-    const pre = await api("negotiation", {id: pid});
-    if (pre.blocked) return this.render(pre);
-    if (!pre.open && !(pre.status === "agreed")) {
-      const r = await quietCmd(`negotiate ${pid}`);
-      if (!r.ok) { this.render(Object.assign(pre, {blocked: r.output.replace(/^Error:\s*/, "")})); return; }
+    try {
+      const pre = await api("negotiation", {id: pid});
+      if (pre.blocked) return this.render(pre);
+      if (!pre.open && !(pre.status === "agreed")) {
+        const r = await quietCmd(`negotiate ${pid}`);
+        if (!r.ok) { this.render(Object.assign(pre, {blocked: r.output.replace(/^Error:\s*/, "")})); return; }
+      }
+      this.render(await api("negotiation", {id: pid}));
+    } catch (err) {                                    // never leave the modal ringing: say what went wrong
+      Modal.open(`<div class="tk"><div class="tk-main"><h3>No talks</h3><p>The call did not connect: ${esc(String(err && err.message || err))}</p>
+        <p class="row"><button class="primary" onclick="Modal.close()">Close</button></p></div></div>`, "talks");
     }
-    this.render(await api("negotiation", {id: pid}));
     Modal.onclose = () => refresh();
   },
   render(v) {
     const ag = v.agent;
+    const done = v.status === "agreed";                  // v0.61 patch: the blocked panel used `done` before it existed, so the modal hung on "Calling his agent"
     const initials = ag.name.split(" ").map((x) => x[0]).join("");
     const left = `<div class="tk-agent"><div class="tk-avatar">${esc(initials)}</div><div><b>${esc(ag.name)}</b><div class="muted">${esc(ag.agency)}</div>
         <span class="tag">${esc(ag.style_label)}</span></div></div>
@@ -133,7 +139,6 @@ const Talks = {
       return;
     }
     if (!v.open) {
-      const done = v.status === "agreed";
       Modal.open(`<div class="tk">${left}<div class="tk-main"><div class="tk-banner ${done ? "pos" : "neg"}">${done ? "DEAL DONE" : v.status === "broken" ? `TALKS BROKEN OFF${v.cooldown_until ? " until " + esc(v.cooldown_until) : ""}` : "TALKS ENDED"}</div>
         <div class="tk-log">${log}</div><p class="row"><button class="primary" onclick="Modal.close()">Close</button>
         ${!done && v.status !== "broken" ? `<button data-talks="${v.player_id}">Reopen talks</button>` : ""}</p></div></div>`, "talks");

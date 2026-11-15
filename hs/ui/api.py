@@ -968,7 +968,8 @@ def standings_full(conn, mode="wildcard", only_conf_of=None):
 FOLDERS = [("all", "Inbox"), ("unread", "Unread"), ("flagged", "Flagged"), ("board", "Owner & board"), ("players", "Players & agents"),
            ("trades", "Trades"), ("staff", "Staff reports"), ("league", "League office"), ("archived", "Archive")]
 CMD_LABEL = {"accept": "Accept", "decline": "Decline", "walkaway": "Walk away", "fa": "Free agents", "offers": "Offers",
-             "qualify": "Qualify", "extend": "Extend", "talk": "Talk", "meet": "Meet"}
+             "qualify": "Qualify", "extend": "Extend", "talk": "Talk", "meet": "Meet",
+             "arbitrate": "Take to arbitration", "sign": "Sign", "college": "College"}
 
 
 def _sender_name(conn, cat, subject):
@@ -990,7 +991,7 @@ def _sender_name(conn, cat, subject):
     return {"trades": "Hockey operations", "players": "Player relations", "staff": "Staff", "league": "League office"}.get(cat, "League office")
 
 
-def _actions(m, body):
+def _actions(m, body, conn=None):
     """Buttons for a message: the ones it carries, then commands quoted in `backticks`, then the usual places."""
     import re
     out = list(m)
@@ -998,7 +999,13 @@ def _actions(m, body):
     for c in re.findall(r"`([a-z][a-z0-9 ._-]{1,40})`", body or ""):
         if c not in have and not c.startswith(("python", "hs ")):
             word = c.split()[0]
-            out.append(dict(label=CMD_LABEL.get(word, c), cmd=c))
+            label = CMD_LABEL.get(word, c)
+            ids = [t for t in c.split()[1:] if t.isdigit()]
+            if ids and conn is not None and word in CMD_LABEL:       # "Take to arbitration: Name", never a bare ID
+                r = conn.execute("SELECT first_name||' '||last_name n FROM players WHERE player_id=?", (int(ids[0]),)).fetchone()
+                if r:
+                    label = f"{label}: {r['n']}"
+            out.append(dict(label=label, cmd=c))
             have.add(c)
     return out
 
@@ -1042,7 +1049,7 @@ def inbox_view(conn, folder="all", q=""):
         acts = json.loads(r["actions"]) if r["actions"] else []
         m = dict(msg_id=r["msg_id"], date=r["date"], subject=r["subject"], body=r["body"], read=bool(r["read"]),
                  folder=cat, sender=sender, colour=colour, snippet=(r["body"] or "")[:140], flagged=bool(r["flagged"]),
-                 archived=bool(r["archived"]), actions=_actions(acts, r["body"]))
+                 archived=bool(r["archived"]), actions=_actions(acts, r["body"], conn))
         if m["archived"]:
             counts["archived"] += 1
             if folder != "archived":
