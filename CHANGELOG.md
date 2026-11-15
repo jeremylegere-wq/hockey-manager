@@ -17,6 +17,7 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
 - Russian interface, selectable from the File menu (docs/RUSSIAN.md).
 - Help > Report a bug opens a new GitHub issue with the details filled in; Help > About shows the build.
 - AI clubs loan young players a level down every Monday from August to the close of the window.
+- A screenshot gallery in the README and docs/GALLERY.md, captured from the fictional world.
 - CI on every push and pull request, and a tag-triggered release workflow (docs/RELEASING.md).
 
 ### Changed

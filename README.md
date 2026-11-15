@@ -31,6 +31,23 @@ No window? `python3 -m hs.ui.server --saves saves --template auto --open` serves
 
 New to it? Read **[docs/MANUAL.md](docs/MANUAL.md)**, the player's manual (a first-season checklist is at the end).
 
+## Screenshots
+
+The game running on its shipped fictional world (invented clubs and players).
+
+[![The Office: club status, board objectives, locker room](docs/screenshots/office.png)](docs/screenshots/office.png)
+
+[![Lines, power play and penalty kill, goalie rules](docs/screenshots/lines.png)](docs/screenshots/lines.png)
+
+[![A game's box score with the 2D replay](docs/screenshots/game-replay.png)](docs/screenshots/game-replay.png)
+
+| | | |
+|---|---|---|
+| [![Two- and three-club trades with picks and retention](docs/screenshots/trade.png)<br>Two- and three-club trades with picks and retention](docs/screenshots/trade.png) | [![Contract talks with an agent](docs/screenshots/negotiate.png)<br>Contract talks with an agent](docs/screenshots/negotiate.png) | [![Expected goals, PDO and a team table](docs/screenshots/analytics.png)<br>Expected goals, PDO and a team table](docs/screenshots/analytics.png) |
+| [![The scouting board for the coming draft](docs/screenshots/scouting.png)<br>The scouting board for the coming draft](docs/screenshots/scouting.png) | [![The books: gate, ticket prices, budgets, arena](docs/screenshots/finances.png)<br>The books: gate, ticket prices, budgets, arena](docs/screenshots/finances.png) | [![Standings with wild-card lines](docs/screenshots/standings.png)<br>Standings with wild-card lines](docs/screenshots/standings.png) |
+
+More screens: **[docs/GALLERY.md](docs/GALLERY.md)**.
+
 ## What you can do
 
 * **Run the club.** Roster, depth chart, lines with priority-list lineups, power-play and penalty-kill units, goalie start

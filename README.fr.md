@@ -37,6 +37,23 @@ Le jeu parle français : **Fichier > Français (Québec)**.
 Nouveau ? Lisez **[le manuel du joueur](docs/fr/MANUAL.md)** (une liste de vérification pour la première saison se trouve à
 la fin).
 
+## Captures d'écran
+
+Le jeu sur son monde fictif livré (clubs et joueurs inventés). Les captures sont en anglais.
+
+[![The Office: club status, board objectives, locker room](docs/screenshots/office.png)](docs/screenshots/office.png)
+
+[![Lines, power play and penalty kill, goalie rules](docs/screenshots/lines.png)](docs/screenshots/lines.png)
+
+[![A game's box score with the 2D replay](docs/screenshots/game-replay.png)](docs/screenshots/game-replay.png)
+
+| | | |
+|---|---|---|
+| [![Two- and three-club trades with picks and retention](docs/screenshots/trade.png)<br>Two- and three-club trades with picks and retention](docs/screenshots/trade.png) | [![Contract talks with an agent](docs/screenshots/negotiate.png)<br>Contract talks with an agent](docs/screenshots/negotiate.png) | [![Expected goals, PDO and a team table](docs/screenshots/analytics.png)<br>Expected goals, PDO and a team table](docs/screenshots/analytics.png) |
+| [![The scouting board for the coming draft](docs/screenshots/scouting.png)<br>The scouting board for the coming draft](docs/screenshots/scouting.png) | [![The books: gate, ticket prices, budgets, arena](docs/screenshots/finances.png)<br>The books: gate, ticket prices, budgets, arena](docs/screenshots/finances.png) | [![Standings with wild-card lines](docs/screenshots/standings.png)<br>Standings with wild-card lines](docs/screenshots/standings.png) |
+
+Plus d'écrans : **[docs/GALLERY.md](docs/GALLERY.md)**.
+
 ## Ce que vous pouvez faire
 
 * **Diriger le club.** Alignement, profondeur, trios par listes de priorité, unités d'avantage et de désavantage
