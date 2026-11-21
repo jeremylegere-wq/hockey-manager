@@ -113,7 +113,8 @@ def _form(conn, t, n=10):
 
 
 def _pressure(conn, t, ctx):
-    p = 40
+    from . import media_profile as MP                     # v0.62 (#12): 40 at steady coverage, 30-50 by market
+    p = MP.base_pressure(conn, t)
     res, kind, n = _form(conn, t)
     if kind in ("L", "O") and n >= 3:
         p += 15
@@ -127,8 +128,12 @@ def _pressure(conn, t, ctx):
 
 
 def _top_players(conn, t, n=3):
+    """The players the questions are about: the media's focus players first (v0.62, #12), then the best."""
     from .roster import player_value
-    return sorted(_roster(conn, t), key=lambda p: -player_value(conn, p))[:n]
+    from . import media_profile as MP
+    focus = [p for p, _ in MP.focus_players(conn, t)]
+    rest = [p for p in sorted(_roster(conn, t), key=lambda p: -player_value(conn, p)) if p not in focus]
+    return (focus + rest)[:n]
 
 
 def _goalie(conn, t, gid=None):
@@ -403,7 +408,8 @@ def daily(conn, day, summary=None):
             from . import rivalry as RV                   # v37: the rivalry model (hs/game/rivalry.py)
             div = RV.points(conn, me, opp) >= RV.BIG
             story = abs(gf - ga) >= 4 or (kind in ("L", "O") and n >= 3) or (kind == "W" and n >= 4) or bool(div) and _rng("riv", gid).random() < 0.5
-            if story or _rng("pg", gid).random() < 1 / 6:
+            from . import media_profile as MP
+            if story or _rng("pg", gid).random() < MP.postgame_chance(conn, me):
                 pid = schedule(conn, "postgame", day, dict(game_id=gid, gf=gf, ga=ga, opp=team_abbr(conn, opp), rivalry=bool(div),
                                                          streak_w=n if kind == "W" else 0, streak_l=n if kind in ("L", "O") else 0,
                                                          goalie=_goalie(conn, me, gid)))
@@ -642,7 +648,9 @@ def view(conn, press_id=None):
                       "availability": "Media availability", "media_day": "Media day", "introduction": "Introductory press conference", "deadline": "Trade deadline",
                       "season_end": "End-of-season press conference", "trade": "The trade", "captaincy": "The captaincy",
                       "trade_request": "Trade request", "contract": "Contract talks"}.get(r["kind"], r["kind"])
-    return dict(events=rows, media=media_state(conn, me), pending=[r for r in rows if r["status"] == "pending"])
+    from . import media_profile as MP
+    return dict(events=rows, media=media_state(conn, me), pending=[r for r in rows if r["status"] == "pending"],
+                profile=MP.profile(conn, me) if me is not None else None)
 
 
 # ---------------------------------------------------------------- v30 (defect 12): sentiment has consequences
@@ -686,12 +694,17 @@ def weekly_outcomes(conn, day, t=None):
         return []
     m = media_state(conn, t)
     form = _recent_form(conn, t)
+    from . import media_profile as MP                     # v0.62 (#12): the local media's lean
+    lean = MP.base_sentiment(conn, t)
     if form is not None:              # v39 (#22): results move the mood too; a hot streak lifts the fans and the coverage
         tgt = 25 + 60 * form
         m["fan_sentiment"] += (tgt - m["fan_sentiment"]) * FORM_DRIFT_FANS
-        m["media_sentiment"] += (tgt - m["media_sentiment"]) * FORM_DRIFT_MEDIA
+        m["media_sentiment"] += (0.75 * tgt + 0.25 * lean - m["media_sentiment"]) * FORM_DRIFT_MEDIA
         conn.execute("UPDATE media_state SET fan_sentiment=?, media_sentiment=? WHERE team_id=?",
                      (m["fan_sentiment"], m["media_sentiment"], t))
+    else:                             # no results yet: the media settles toward its lean
+        m["media_sentiment"] += (lean - m["media_sentiment"]) * FORM_DRIFT_MEDIA
+        conn.execute("UPDATE media_state SET media_sentiment=? WHERE team_id=?", (m["media_sentiment"], t))
     out = []
     club = _club(conn, t)
     for kind, test, hl, body, board, morale, coh, dfans, dmedia in OUTCOMES:

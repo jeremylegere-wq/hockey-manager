@@ -59,3 +59,16 @@ season on the 2026-27 world (a season and a summer, same seed) the average chang
 average current ability holds: 146.8 to 146.4, spread 17.7 to 18.3. What changes is who grows: a kid who plays,
 in the right league, with a good mentor and good habits, grows faster; one sitting in the press box or coasting in
 the AHL grows slower.
+
+## Coaching points and goalie slots (v0.62, issue #14)
+`hs/game/training.py`. The Development screen shows both.
+
+* **Coaching points by category** (1-20, 10 average) from your staff: offence (0.6 x the best assistant's coaching
+  + 0.4 x the head coach's), defence (the other assistant, the same way), skating and physical (the development
+  coach's development), mental (the head coach's communication and leadership), positioning and reflexes (the
+  goaltending coach's coaching). A training focus takes 1.6x its share of a gain at 10 points, 1.6 + 0.04 per
+  point from 1.4x to 1.8x. AI clubs' players get the same from their own staff.
+* **Goalie training slots**: the goaltending coach works one-on-one with two goalies (three at coaching 14, four at
+  18). A goalie 24 or under in a slot has a "goalie coach" development factor of 1.06 + 0.0107 per point of his
+  coach's rating above 10 (1.00-1.15); one without a slot, 0.97. You pick (Give him a slot / Free the slot,
+  `goalieslot add|remove <goalie>`); open slots go to the youngest goalies, then the higher ceiling.

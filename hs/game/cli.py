@@ -795,6 +795,23 @@ class CLI(cmd.Cmd):
             raise ValueError("Usage: scout | scout assign <id> <region> | scout trip <id> <event> | scout watch|unwatch <player>")
         self.conn.commit()
 
+    def do_goalieslot(self, arg):
+        "goalieslot [add|remove <goalie>]: your goaltending coach's one-on-one slots (list them with no argument)"
+        me = self.need()
+        from . import training as TR
+        a = arg.split(None, 1)
+        if a and a[0] in ("add", "remove") and len(a) > 1:
+            r = self.find(a[1], "team_id=? AND position='G'", (me,))
+            TR.set_goalie_slot(self.conn, me, r["player_id"], a[0] == "add")
+            self.conn.commit()
+        elif a:
+            raise ValueError("Usage: goalieslot [add|remove <goalie>]")
+        chosen, auto = TR.goalie_slots(self.conn, me)
+        self.p(f"Goalie slots: {TR.slot_count(self.conn, me)}")
+        for pid in chosen + auto:
+            n = self.conn.execute("SELECT first_name||' '||last_name FROM players WHERE player_id=?", (pid,)).fetchone()[0]
+            self.p(f"  {n:<24} {'your choice' if pid in chosen else 'by default'}  development x{TR.goalie_slot_factor(self.conn, me, pid):.2f}")
+
     def do_train(self, arg):
         "train <player> <balanced|offence|defence|skating|physical|mental|positioning|reflexes>: a player's training focus"
         me = self.need()

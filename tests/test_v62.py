@@ -186,5 +186,126 @@ class AlumniTests(Base):
             SC.alumni(self.c, 99999)
 
 
+class CoachingPointsTests(Base):
+    def setUp(self):
+        super().setUp()
+        from hs.game import staff as S
+        S.ensure_tables(self.c)
+        if not self.c.execute("SELECT COUNT(*) FROM staff WHERE team_id=?", (self.me,)).fetchone()[0]:
+            S.setup(self.c)
+
+    def test_points_follow_the_staff(self):
+        from hs.game import training as TR
+        pts = TR.category_points(self.c, self.me)
+        self.assertEqual(set(pts), {"offence", "defence", "skating", "physical", "mental", "positioning", "reflexes"})
+        self.assertTrue(all(1 <= v <= 20 for v in pts.values()))
+        self.c.execute("UPDATE staff SET coaching=20 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertEqual(TR.category_points(self.c, self.me)["reflexes"], 20)
+        self.assertAlmostEqual(TR.boost(self.c, self.me, "reflexes"), 1.8)
+        self.c.execute("UPDATE staff SET coaching=4 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertAlmostEqual(TR.boost(self.c, self.me, "positioning"), 1.4)
+        self.assertEqual(TR.boost(self.c, self.me, "balanced"), 1.6)
+        self.assertEqual(TR.boost(self.c, None, "offence"), 1.6)
+
+    def test_boost_moves_more_into_the_focus(self):
+        import random as _r
+        from hs.game import ratings as RT
+        from hs.attributes import RATING_COLS
+        keys = RT.DEVELOPS["S"]
+        base = {k: 10 for k in RATING_COLS}
+        foc = RT.focus_ratings(__import__("hs.game.training", fromlist=["x"]).FOCUS["offence"])
+        lo = RT.develop(base, "C", 1.0, _r.Random(1), 21, foc, noise=0.0, boost=1.4)
+        hi = RT.develop(base, "C", 1.0, _r.Random(1), 21, foc, noise=0.0, boost=1.8)
+        gain = lambda d: sum(d[k] - 10 for k in foc if k in keys)
+        self.assertGreaterEqual(gain(hi), gain(lo))
+
+    def test_goalie_slots(self):
+        from hs.game import training as TR
+        goalies = [r[0] for r in self.c.execute("SELECT player_id FROM players WHERE team_id=? AND position='G' AND "
+                                                "status IN ('active','injured','prospect')", (self.me,))]
+        self.assertGreaterEqual(len(goalies), 2)
+        self.c.execute("UPDATE staff SET coaching=10 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertEqual(TR.slot_count(self.c, self.me), 2)
+        self.c.execute("UPDATE staff SET coaching=18 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertEqual(TR.slot_count(self.c, self.me), 4)
+        self.c.execute("UPDATE staff SET coaching=10 WHERE team_id=? AND role='GC'", (self.me,))
+        chosen, auto = TR.goalie_slots(self.c, self.me)
+        self.assertEqual(chosen, [])
+        self.assertEqual(len(auto), min(2, len(goalies)))
+        TR.set_goalie_slot(self.c, self.me, goalies[-1])
+        chosen, auto = TR.goalie_slots(self.c, self.me)
+        self.assertEqual(chosen, [goalies[-1]])
+        self.assertNotIn(goalies[-1], auto)
+        if len(goalies) > 2:
+            TR.set_goalie_slot(self.c, self.me, goalies[0])
+            with self.assertRaises(ValueError):
+                TR.set_goalie_slot(self.c, self.me, next(g for g in goalies if g not in TR.goalie_slots(self.c, self.me)[0]))
+        skater = self.a_player()
+        with self.assertRaises(ValueError):
+            TR.set_goalie_slot(self.c, self.me, skater)
+        TR.set_goalie_slot(self.c, self.me, goalies[-1], on=False)
+        self.assertNotIn(goalies[-1], TR.goalie_slots(self.c, self.me)[0])
+
+    def test_slot_factor(self):
+        from hs.game import training as TR
+        from hs.game import contracts as K2
+        g = self.c.execute("SELECT player_id FROM players WHERE team_id=? AND position='G' LIMIT 1", (self.me,)).fetchone()[0]
+        y = K2.season_year(self.c)
+        self.c.execute("UPDATE players SET birth_date=? WHERE player_id=?", (f"{y - 20}-03-01", g))
+        TR.set_goalie_slot(self.c, self.me, g)
+        self.c.execute("UPDATE staff SET coaching=20 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertAlmostEqual(TR.goalie_slot_factor(self.c, self.me, g), 1.15)
+        self.c.execute("UPDATE staff SET coaching=10 WHERE team_id=? AND role='GC'", (self.me,))
+        self.assertAlmostEqual(TR.goalie_slot_factor(self.c, self.me, g), 1.06)
+        self.c.execute("UPDATE players SET birth_date=? WHERE player_id=?", (f"{y - 30}-03-01", g))
+        self.assertEqual(TR.goalie_slot_factor(self.c, self.me, g), 1.0)          # a veteran: no slot effect
+
+    def test_development_view_has_both(self):
+        from hs.ui import api
+        d = api.development_view(self.c)
+        self.assertEqual(len(d["coaching"]), 7)
+        self.assertIn("n", d["goalie_slots"])
+
+
+class MediaProfileTests(Base):
+    def test_coverage_follows_the_market(self):
+        from hs.game import finance as FN
+        from hs.game import media_profile as MP
+        FN.setup(self.c)
+        self.c.execute("UPDATE club_finance SET market=10 WHERE team_id=?", (self.me,))
+        self.assertEqual(MP.coverage(self.c, self.me), 5)
+        self.assertEqual(MP.postgame_chance(self.c, self.me), 1 / 4)
+        self.assertEqual(MP.base_pressure(self.c, self.me), 50)
+        self.c.execute("UPDATE club_finance SET market=1 WHERE team_id=?", (self.me,))
+        self.assertEqual(MP.coverage(self.c, self.me), 1)
+        self.assertEqual(MP.base_pressure(self.c, self.me), 30)
+        self.assertIn(MP.attitude(self.c, self.me), MP.ATTITUDE_BASE)
+        self.assertEqual(MP.attitude(self.c, self.me), MP.attitude(self.c, self.me))      # fixed for the save
+
+    def test_focus_players(self):
+        from hs.game import media_profile as MP
+        from hs.game.roster import player_value
+        f = MP.focus_players(self.c, self.me)
+        kinds = [k for _, k in f]
+        self.assertEqual(kinds[0], "star")
+        self.assertEqual(len({p for p, _ in f}), len(f))
+        star = f[0][0]
+        roster = [r[0] for r in self.c.execute("SELECT player_id FROM players WHERE team_id=? AND status IN ('active','injured')", (self.me,))]
+        self.assertEqual(player_value(self.c, star), max(player_value(self.c, p) for p in roster))
+        self.assertEqual(MP.focus_players(self.c, self.me), f)                       # kept for the season
+        other = self.c.execute("SELECT team_id FROM teams WHERE league_id=1 AND team_id<>? LIMIT 1", (self.me,)).fetchone()[0]
+        self.c.execute("UPDATE players SET team_id=? WHERE player_id=?", (other, star))
+        again = MP.focus_players(self.c, self.me)
+        self.assertNotIn(star, [p for p, _ in again])
+        from hs.game import press
+        self.assertEqual(press._top_players(self.c, self.me)[0], again[0][0])         # questions go to them first
+
+    def test_press_view_has_the_profile(self):
+        from hs.game import press
+        v = press.view(self.c)
+        self.assertIn("coverage", v["profile"])
+        self.assertTrue(v["profile"]["focus"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -93,7 +93,7 @@ def yearly_change(age, current, prof, rng):
     return -base * prof["decline_rate"] + rng.gauss(0, 0.05)
 
 
-def apply_change(attrs, pos, delta, rng, age, focus=()):
+def apply_change(attrs, pos, delta, rng, age, focus=(), boost=1.6):
     """Spread an overall change over the player's attributes; returns the new attribute dict. Multipliers are
     normalised over the key attributes so the overall moves by `delta` on average. v36: `focus` attributes (his
     training focus) take 1.6x their share of a gain, and 0.6x of a loss."""
@@ -108,7 +108,7 @@ def apply_change(attrs, pos, delta, rng, age, focus=()):
     def mult(a):
         m = mult0(a)
         if a in focus:
-            m *= 1.6 if delta >= 0 else 0.6
+            m *= boost if delta >= 0 else 0.6
         return m
     norm = len(keys) / sum(mult(k) for k in keys)
     out = dict(attrs)

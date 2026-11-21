@@ -75,3 +75,16 @@ answers, outcome), media_state (per club: fan sentiment, media sentiment, contro
   contract, the best prospect, the coach. The first answer is weighed against the owner's competitive objective:
   in line +4 board confidence, one step off -1, further -6, written to Job Security ("introduction"). Major: a long
   sim stops for it.
+
+## The club's media (v0.62, issue #12)
+`hs/game/media_profile.py`. Every club has a media profile, shown on the Press Room screen ("How you are covered",
+"Who they are watching"):
+
+* **Coverage level** (1-5) follows the market (the finance profile's 1-10): post-game press conferences after a game
+  with no story happen 1 in 10, 8, 6, 5 or 4 games, and every press conference's pressure starts at 30, 35, 40, 45
+  or 50 (it was 40 for everyone), so answers count for more in a big market.
+* **Base attitude**: critical (45), neutral (55) or friendly (65), fixed for the save (bigger markets lean critical
+  more often). Each Monday the media's mood drifts toward 3/4 of what the results say and 1/4 of the lean.
+* **Focus players**: up to three at your club each season (the star, the phenom 22 or under, the contract: the
+  highest cap hit among players worth less than the club's median for their pay). Questions about a player go to
+  them first; when one leaves, the media picks again. Table `media_focus`.

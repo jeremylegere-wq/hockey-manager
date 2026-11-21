@@ -65,3 +65,43 @@ VIEWS.alumni = async (team) => {
   const faV62 = VIEWS.freeagents;
   if (faV62) VIEWS.freeagents = async (...args) => (await faV62(...args)).replace('<span class="spacer"></span>', '<span class="spacer"></span><a class="btn" href="#transactions/summary">Transfer summary</a> ');
 })();
+
+/* v0.62 (#14): the development centre shows the staff's coaching points by category and the goalie coach's slots */
+DEVF["goalie coach"] = "Goalie coach";
+const devV62 = VIEWS.development;
+VIEWS.development = async () => {
+  const html = await devV62();
+  let d;
+  try { d = await api("development"); } catch (e) { return html; }
+  const bar = (v) => `<span class="cp-bar"><i style="width:${Math.round(v / 20 * 100)}%"></i></span>`;
+  const pts = d.coaching.map((c) => `<tr><td>${esc(c.category)}</td><td class="num"><b>${c.points.toFixed(1)}</b></td><td>${bar(c.points)}</td><td class="num">x${c.boost.toFixed(2)}</td></tr>`).join("");
+  const gs = d.goalie_slots;
+  const used = gs.goalies.filter((g) => g.slot).length;
+  const grows = gs.goalies.map((g) => `<tr><td>${clink(g.player_id, g.name)}</td><td class="num">${g.age}</td><td>${g.status === "prospect" ? '<span class="tag">minors</span>' : "NHL"}</td>
+    <td>${g.slot === "chosen" ? '<span class="tag pos">your choice</span>' : g.slot === "auto" ? '<span class="tag">by default</span>' : '<span class="muted">no slot</span>'}</td>
+    <td class="num">${g.factor === 1 ? '<span class="muted">-</span>' : `x${g.factor.toFixed(2)}`}</td>
+    <td>${g.slot === "chosen" ? `<button class="mini" data-cmd="goalieslot remove ${g.player_id}">Free the slot</button>` : `<button class="mini" data-cmd="goalieslot add ${g.player_id}">Give him a slot</button>`}</td></tr>`).join("");
+  const extra = `<div class="grid two">${panel("Coaching points by category", `<table><tr><th>Category</th><th class="num">Points</th><th></th><th class="num" title="How much more of a gain the focus attributes take">Focus boost</th></tr>${pts}</table>
+      <p class="muted small">Your staff's strength in each training focus: offence and defence from your assistant coaches and head coach, skating and physical from the development coach,
+      mental from the head coach's communication and leadership, positioning and reflexes from the goaltending coach. 10 is average; a focus takes x1.6 of its share at 10, from x1.4 to x1.8.</p>`)}
+    ${panel(`Goalie training slots (${used} of ${gs.n})`, gs.goalies.length ? `<table><tr><th>Goalie</th><th class="num">Age</th><th>Where</th><th>Slot</th><th class="num">Development</th><th></th></tr>${grows}</table>` : empty("No goalies in the organisation."))
+      .replace("</section>", `<p class="muted small">Your goaltending coach works one-on-one with ${gs.n} goalies (three with a coaching rating of 14, four with 18). A goalie 24 or under in a slot develops faster with a better coach; one without a slot, 3% slower. Open slots go to your youngest goalies by default.</p></section>`)}</div>`;
+  return html + extra;
+};
+
+/* v0.62 (#12): the press room shows how your club is covered */
+const pressV62 = VIEWS.press;
+VIEWS.press = async () => {
+  const html = await pressV62();
+  let d;
+  try { d = await api("press"); } catch (e) { return html; }
+  const p = d.profile;
+  if (!p) return html;
+  const kinds = {star: "the star", phenom: "the phenom", contract: "the contract"};
+  const focus = p.focus.map((f) => `<li>${clink(f.player_id, f.name)} <span class="muted">${esc(kinds[f.kind] || f.kind)}</span></li>`).join("") || '<li class="muted">Nobody yet.</li>';
+  return html + `<div class="grid two">${panel("How you are covered", `<dl class="kv"><dt>Coverage</dt><dd><b>${p.coverage}</b> of 5 (${esc(p.coverage_words)})</dd>
+      <dt>The local media</dt><dd>${esc(p.attitude_words)}</dd><dt>After a quiet game</dt><dd>a press conference about one game in ${Math.round(1 / p.postgame)}</dd>
+      <dt>Pressure at the podium</dt><dd>starts at ${p.pressure}</dd></dl>
+      <p class="muted small">Coverage follows your market: more reporters, more press conferences and more riding on each answer. The media's mood drifts toward the results and toward its lean.</p>`)}
+    ${panel("Who they are watching", `<ul class="list">${focus}</ul><p class="muted small">The players the media follows this season: questions about a player go to them first.</p>`)}</div>`;
+};

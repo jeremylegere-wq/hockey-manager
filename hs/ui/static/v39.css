@@ -183,3 +183,6 @@ svg.fin-trend text { fill: currentColor; opacity: 0.75; }
 .tr-tbl td, .tr-info td { vertical-align: top; }
 .tr-tbl select { max-width: 220px; }
 .tr-info td { padding: 3px 6px; }
+/* v0.62: coaching points bars */
+.cp-bar { display: inline-block; width: 120px; height: 8px; background: #e3eaf3; border-radius: 4px; vertical-align: middle; }
+.cp-bar i { display: block; height: 100%; background: #3f66a3; border-radius: 4px; }

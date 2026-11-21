@@ -192,11 +192,12 @@ def develop(conn, day):
             from . import hidden as HD                   # v35: coachability
             delta *= HD.coach_factor(HD.of(conn, pid)["coachability"])
         fz = TR.FOCUS.get(focus.get(pid, "balanced"), ())
+        bst = TR.boost(conn, r["team_id"], focus.get(pid, "balanced"))     # v0.62 (#14): the staff's points in that category
         nat = native.get(pid)
         if nat is not None and scale:                # v38, imported worlds: the ratings develop; the engine attributes follow
             pos = r["position"]
             prev = nat
-            nat = RT.develop(nat, pos, delta, rng, age, RT.focus_ratings(fz), kscale[pos == "G"])
+            nat = RT.develop(nat, pos, delta, rng, age, RT.focus_ratings(fz), kscale[pos == "G"], boost=bst)
             nat["current_ability"] = RT.carry_ability(prev, nat, pos, scale, ca)
             new = derive(nat, pos, scale, ca)
             pot = p.get("potential")
@@ -204,7 +205,7 @@ def develop(conn, day):
                 nat["potential_ability"] = max(nat["current_ability"], ability_of(pot, ca, pos))
             native_updates.append([nat.get(c) for c in RATING_COLS] + [pid])
         else:                                        # worlds built on engine attributes: they develop; the ratings mirror them
-            new = apply_change(r, r["position"], delta, rng, age, fz)
+            new = apply_change(r, r["position"], delta, rng, age, fz, boost=bst)
             if nat is not None:
                 pos = r["position"]
                 mirror = ratings_from_engine(new, pos, None, ca, overall=overall_of(new, pos), potential=p.get("potential"))

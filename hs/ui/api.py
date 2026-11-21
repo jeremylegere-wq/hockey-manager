@@ -1604,8 +1604,15 @@ def development_view(conn):
     dv = DV.org_view(conn, get_state(conn)[0])
     for x in out:
         x["dev"] = dv["players"].get(x["player_id"])
+    pts = TR.category_points(conn, me)                 # v0.62 (#14): coaching points and goalie slots
+    chosen, auto = TR.goalie_slots(conn, me)
+    goalies = [dict(player_id=x["player_id"], name=x["name"], age=x["age"], status=x["status"],
+                    slot="chosen" if x["player_id"] in chosen else "auto" if x["player_id"] in auto else None,
+                    factor=TR.goalie_slot_factor(conn, me, x["player_id"])) for x in out if x["pos"] == "G"]
     return dict(players=out, snapshots=years, intensity=dv["intensity"], mentors=dv["mentors"], words=dv["words"],
-                intensities={k: dict(growth=v[0], injuries=v[1], ageing=v[2]) for k, v in DV.INTENSITY.items()})
+                intensities={k: dict(growth=v[0], injuries=v[1], ageing=v[2]) for k, v in DV.INTENSITY.items()},
+                coaching=[dict(category=k, points=v, boost=TR.boost(conn, me, k)) for k, v in pts.items()],
+                goalie_slots=dict(n=TR.slot_count(conn, me), goalies=sorted(goalies, key=lambda g: (g["slot"] is None, g["age"]))))
 
 
 def devlog_view(conn, pid):

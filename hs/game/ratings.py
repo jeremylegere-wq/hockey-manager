@@ -171,7 +171,7 @@ def engine_delta_scale(conn, pos):
     return tot / len(keys) or 1.0
 
 
-def develop(ratings, pos, delta_engine, rng, age, focus=(), k=1.0, noise=0.12):
+def develop(ratings, pos, delta_engine, rng, age, focus=(), k=1.0, noise=0.12, boost=1.6):
     """One summer on the ratings: the change the development model wants in the engine overall (delta_engine),
     spread over the ratings that develop, the body ageing first and the mind last (as in worldgen.apply_change)."""
     keys = DEVELOPS["G" if pos == "G" else "S"]
@@ -183,7 +183,7 @@ def develop(ratings, pos, delta_engine, rng, age, focus=(), k=1.0, noise=0.12):
         else:
             m = 1.15 if (a in MIND and age >= 22) else 0.9 if (a in BODY and age >= 24) else 1.0
         if a in focus:
-            m *= 1.6 if delta >= 0 else 0.6
+            m *= boost if delta >= 0 else 0.6
         return m
     norm = len(keys) / sum(mult(a) for a in keys)
     out = dict(ratings)

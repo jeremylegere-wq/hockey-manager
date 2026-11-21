@@ -216,6 +216,11 @@ def factors(conn, pid, row, age, since, until, ctx):
     elif where == "NHL" and age <= PUPIL_MAX_AGE and ctx["natural"].get(team):
         f["mentor"] = NATURAL_MENTOR_F
     f["training"] = INTENSITY[intensity(conn, team)][0] if team else 1.0
+    if g == "G" and team:                                 # v0.62 (#14): the goaltending coach's slots
+        from . import training as TR
+        gf = TR.goalie_slot_factor(conn, team, pid)
+        if gf != 1.0:
+            f["goalie coach"] = gf
     out = _days_out(conn, pid, since, until)
     if out:
         f["injury"] = round(max(0.2, 1 - 0.8 * out / period), 3)
@@ -255,14 +260,16 @@ def _apply(conn, pid, row, delta, rng, age, ctx_scale):
     from . import training as TR
     from ..attributes import RATING_COLS, derive
     from ..worldgen import apply_change, overall_of
-    fz = TR.FOCUS.get(TR.focus_of(conn, pid), ())
+    fk = TR.focus_of(conn, pid)
+    fz = TR.FOCUS.get(fk, ())
+    bst = TR.boost(conn, row["team_id"], fk)              # v0.62 (#14)
     scale, ca, kscale = ctx_scale
     nat = RT.of(conn, pid) if scale else None
     before = overall_of(row, row["position"])
     if nat is not None:
         pos = row["position"]
         prev = dict(nat)
-        nat = RT.develop(nat, pos, delta, rng, age, RT.focus_ratings(fz), kscale[pos == "G"], noise=0.0)
+        nat = RT.develop(nat, pos, delta, rng, age, RT.focus_ratings(fz), kscale[pos == "G"], noise=0.0, boost=bst)
         nat["current_ability"] = RT.carry_ability(prev, nat, pos, scale, ca)
         nat["potential_ability"] = max(nat.get("potential_ability") or 0, nat["current_ability"])
         RT.write(conn, pid, nat, pos, prev=prev)
@@ -270,7 +277,7 @@ def _apply(conn, pid, row, delta, rng, age, ctx_scale):
         ca_b, ca_a = prev.get("current_ability"), nat.get("current_ability")
     else:
         from ..attributes import ALL_ATTRS
-        new = apply_change(row, row["position"], delta, rng, age, fz)
+        new = apply_change(row, row["position"], delta, rng, age, fz, boost=bst)
         conn.execute(f"UPDATE player_attributes SET {', '.join(f'{a}=?' for a in ALL_ATTRS)} WHERE player_id=?",
                      [new.get(a) if new.get(a) != "" else None for a in ALL_ATTRS] + [pid])
         ca_b = ca_a = None
@@ -459,7 +466,8 @@ def player_view(conn, pid):
 
 
 FACTOR_WORDS = {"ice": "ice time", "level": "level of play", "character": "character", "mentor": "mentor",
-                "training": "training", "injury": "injury", "staff": "coaches", "coachability": "coachability"}
+                "training": "training", "injury": "injury", "staff": "coaches", "coachability": "coachability",
+                "goalie coach": "goalie coach"}
 
 
 def org_view(conn, day):
