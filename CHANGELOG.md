@@ -6,6 +6,8 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
 
 ## [Unreleased]
 
+## [0.61.1] - 2026-11-21
+
 ### Fixed
 - Draft: making your pick in the draft room made the pick, then failed with an error (a SQL function SQLite does not
   have), so it looked as if the pick had not happened (issue #32).
@@ -17,7 +19,7 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
   message has a button that opens College Hockey on the Free agents tab (issue #31).
 - LTIR screen: the command-line listing of players on long-term injured reserve failed on the same SQL function.
 - Free agency: moving on from the war room while the auction is still open always asks first, even with "confirm
-  phase changes" off, and the war room shows an error instead of a blank page if it cannot open (issue #35; see below).
+  phase changes" off, and the war room shows an error instead of a blank page if it cannot open (issue #35).
 
 ## [0.61] - 2026-11-15
 
