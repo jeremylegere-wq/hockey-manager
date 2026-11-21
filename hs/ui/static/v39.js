@@ -132,7 +132,7 @@ VIEWS.trade = async (team) => {
       const p = pinfo[x.value];
       const cell = x.closest("tr") && x.closest("tr").children[1];
       if (!p || !cell) return;
-      if (p.clause) cell.insertAdjacentHTML("beforeend", ` <span class="tag clause" title="Trade protection: he must agree to a trade, or a list of clubs is off limits">${esc(p.clause)}</span>`);
+      if (p.clause) cell.insertAdjacentHTML("beforeend", ` <span class="tag clause" title="${esc(p.clause_detail || "Trade protection: he must agree to a trade, or a list of clubs is off limits")}">${esc(p.clause)}</span>`);
       if (p.friction != null && p.friction >= 20) cell.insertAdjacentHTML("beforeend", ` <span class="tag fr" title="How hard he is to pry loose (0-100): they want 1.05 + this/100 of his value, and they only shop him to clubs whose need is at least this">hard to get ${p.friction}</span>`);
     });
     // picks: a grid by year and round instead of a run of chips

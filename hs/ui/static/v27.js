@@ -67,6 +67,7 @@ VIEWS.player = async (id) => {
   const contract = (p.contract ? panel("Current contract", `<div class="pp-contract"><div><b>${mil(p.contract.cap_hit)}</b><span>cap hit</span></div><div><b>${p.contract.years}</b><span>years</span></div>
       <div><b>${ssn(p.contract.start)}</b><span>first season</span></div><div><b>${ssn(p.contract.ends)}</b><span>final season</span></div><div><b>${esc(ctype(p.contract.type))}</b><span>type</span></div>
       ${p.contract.no_trade ? '<div><b>Yes</b><span>no-trade clause</span></div>' : ""}${p.contract.expiring ? `<div><b>${esc(p.contract.status_at_expiry || "")}</b><span>at expiry</span></div>` : ""}</div>
+      ${p.contract.clause ? `<p class="muted">${esc(p.contract.clause)}</p>` : ""}
       ${p.mine && p.contract.expiring ? `<p><button class="primary" data-talks="${p.player_id}">Negotiate an extension</button></p>` : ""}`) : "") + val +
     panel("Contract history", table(p.contracts, [{key: "start_year", label: "From", fmt: (r) => ssn(r.start_year)}, {key: "years", label: "Yrs", num: 1},
       {key: "cap_hit", label: "AAV", num: 1, fmt: (r) => mil(r.cap_hit)}, {key: "team", label: "Team"}, {key: "contract_type", label: "Type", fmt: (r) => esc(ctype(r.contract_type))}]));

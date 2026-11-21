@@ -4,6 +4,8 @@ Kinds
   NMC    no-movement: no trade, no waivers, no assignment to the minors without his consent
   NTC    full no-trade: no trade without his consent (waivers allowed)
   MNTC   modified no-trade: a list of `list_size` clubs he cannot be traded to; any other club is fine
+  MNTC_A modified no-trade, approved list (v0.62, issue #11): he can be traded only to the `list_size` clubs he names;
+         every other club needs his consent, which he gives on the same terms as a full clause
 
 Who has one
   Clauses go only to players who could have signed as unrestricted free agents (26+ when the deal starts) on deals of
@@ -15,6 +17,11 @@ Who has one
 The list (MNTC)
   Each summer (and when a clause is created) a player names the clubs he will not go to: the ones he rates worst,
   by competitive state, with some noise of his own.
+
+The approved list (MNTC_A)
+  The reverse: each summer he names the clubs he would accept, the ones he rates best (contenders, with noise of his
+  own). About three modified clauses in ten are written this way, with 8 to 12 clubs. A trade to a club off the list
+  is a full no-trade clause for that trade: he waives only if the move is clearly better for him.
 
 Waiving (NTC, NMC)
   He waives only if the move is clearly better for him:
@@ -29,8 +36,12 @@ import json
 import random
 
 KINDS = ("NMC", "NTC", "MNTC")
-LABEL = {"NMC": "no-movement clause", "NTC": "full no-trade clause", "MNTC": "modified no-trade clause"}
-SHORT = {"NMC": "NMC", "NTC": "NTC", "MNTC": "M-NTC"}
+ALL_KINDS = KINDS + ("MNTC_A",)
+LABEL = {"NMC": "no-movement clause", "NTC": "full no-trade clause", "MNTC": "modified no-trade clause",
+         "MNTC_A": "modified no-trade clause"}
+SHORT = {"NMC": "NMC", "NTC": "NTC", "MNTC": "M-NTC", "MNTC_A": "M-NTC"}
+LISTED = ("MNTC", "MNTC_A")                                   # the kinds that carry a list of clubs
+APPROVED_SHARE = 0.3                                          # of modified clauses, the share written as an approved list
 WAIVE_GAIN = 0.5
 
 
@@ -58,7 +69,12 @@ def roll(rng, cap_hit, years, age):
         return None
     w = [40, 25, 35] if cap_hit >= 7_000_000 else [10, 25, 65]
     kind = rng.choices(KINDS, weights=w)[0]
-    return kind, (rng.randint(8, 16) if kind == "MNTC" else 0)
+    if kind != "MNTC":
+        return kind, 0
+    size = rng.randint(8, 16)
+    if rng.random() < APPROVED_SHARE:                         # v0.62: an approved list instead of a blocked one
+        return "MNTC_A", 8 + size % 5
+    return kind, size
 
 
 def set_clause(conn, pid, contract_id, kind, list_size, start_year, end_year):
@@ -122,10 +138,13 @@ def of(conn, pid, year=None):
     r = conn.execute("SELECT * FROM clauses WHERE player_id=? AND contract_id=?", (pid, c["contract_id"])).fetchone()
     if not r or not (r["start_year"] <= year <= r["end_year"]):
         return None
-    d = dict(kind=r["kind"], list_size=r["list_size"], blocked=json.loads(r["blocked"]) if r["blocked"] else None,
+    lst = json.loads(r["blocked"]) if r["blocked"] else None
+    approved = r["kind"] == "MNTC_A"
+    d = dict(kind=r["kind"], list_size=r["list_size"], blocked=None if approved else lst, allowed=lst if approved else None,
              list_year=r["list_year"])
-    d["label"] = LABEL[d["kind"]] + (f" ({d['list_size']}-team list)" if d["kind"] == "MNTC" else "")
-    d["short"] = SHORT[d["kind"]] + (f" {d['list_size']}" if d["kind"] == "MNTC" else "")
+    d["label"] = LABEL[d["kind"]] + (f" ({d['list_size']}-team list)" if d["kind"] == "MNTC" else
+                                     f" ({d['list_size']} approved clubs)" if approved else "")
+    d["short"] = SHORT[d["kind"]] + (f" {d['list_size']}" if d["kind"] == "MNTC" else f" {d['list_size']} OK" if approved else "")
     return d
 
 
@@ -135,13 +154,14 @@ def refresh_lists(conn, state, year=None):
     from . import contracts as K
     ensure_table(conn)
     year = K.season_year(conn) if year is None else year
-    for r in conn.execute("SELECT c.player_id, c.list_size, p.team_id FROM clauses c JOIN players p USING (player_id) "
-                          "WHERE c.kind='MNTC' AND (c.list_year IS NULL OR c.list_year<>?)", (year,)).fetchall():
+    for r in conn.execute("SELECT c.player_id, c.kind, c.list_size, p.team_id FROM clauses c JOIN players p USING (player_id) "
+                          "WHERE c.kind IN ('MNTC','MNTC_A') AND (c.list_year IS NULL OR c.list_year<>?)", (year,)).fetchall():
         rng = random.Random(f"ntclist-{r['player_id']}-{year}")
         others = [t for t in state if t != r["team_id"]]
-        others.sort(key=lambda t: state[t] + rng.uniform(-0.15, 0.15))
-        conn.execute("UPDATE clauses SET blocked=?, list_year=? WHERE player_id=? AND kind='MNTC'",
-                     (json.dumps(others[:r["list_size"]]), year, r["player_id"]))
+        # MNTC: the clubs he rates worst are off limits; MNTC_A: the clubs he rates best are the only ones he accepts
+        others.sort(key=lambda t: (state[t] + rng.uniform(-0.15, 0.15)) * (-1 if r["kind"] == "MNTC_A" else 1))
+        conn.execute("UPDATE clauses SET blocked=?, list_year=? WHERE player_id=? AND kind=?",
+                     (json.dumps(others[:r["list_size"]]), year, r["player_id"], r["kind"]))
 
 
 def waive_threshold(conn, pid, s_to, requested=False):
@@ -169,6 +189,14 @@ def check(conn, pid, to_team, s_from, s_to, role_from, role_to, requested=False)
         if c["blocked"] and to_team in c["blocked"]:
             return f"{player_name(conn, pid)} has {team_abbr(conn, to_team)} on his no-trade list"
         return None
+    if c["kind"] == "MNTC_A":
+        if not c["allowed"] or to_team in c["allowed"]:
+            return None                                       # no list named yet, or an approved club
+        gain = (s_to - s_from) + (role_to - role_from)
+        if gain >= waive_threshold(conn, pid, s_to, requested):
+            return None
+        return (f"{player_name(conn, pid)} can be traded only to the {c['list_size']} clubs on his approved list, "
+                f"and {team_abbr(conn, to_team)} is not one of them")
     gain = (s_to - s_from) + (role_to - role_from)
     if gain >= waive_threshold(conn, pid, s_to, requested):
         return None

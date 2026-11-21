@@ -1301,7 +1301,7 @@ class CLI(cmd.Cmd):
             self.p(f"  `propose {v['player_id']} <aav> <years> [ntc]` to answer, `endtalks {v['player_id']}` to stop")
 
     def do_propose(self, arg):
-        """propose <player> <aav> <years> [flat|front|bonus] [ntc|nmc|mntc|mntc_late] [perf=<amount>]: your offer in
+        """propose <player> <aav> <years> [flat|front|bonus] [ntc|nmc|mntc|mntc_ok|mntc_late] [perf=<amount>]: your offer in
         contract talks (perf: performance bonuses on a one-year deal for a 35+ or injured veteran)"""
         self.need()
         from . import negotiation as N
@@ -1311,9 +1311,9 @@ class CLI(cmd.Cmd):
         st_ = re.search(r"\s(flat|front|bonus)\b", arg, re.I)
         structure = st_.group(1).lower() if st_ else "flat"
         arg = re.sub(r"\s(flat|front|bonus)\b", "", arg, flags=re.I)
-        m_ = re.search(r"\s(ntc|nmc|mntc_late|mntc|none)\s*$", arg, re.I)
+        m_ = re.search(r"\s(ntc|nmc|mntc_late|mntc_ok|mntc|none)\s*$", arg, re.I)
         ntc = m_.group(1).lower() if m_ else "none"
-        arg = re.sub(r"\s(ntc|nmc|mntc_late|mntc|none)\s*$", "", arg, flags=re.I)
+        arg = re.sub(r"\s(ntc|nmc|mntc_late|mntc_ok|mntc|none)\s*$", "", arg, flags=re.I)
         who, aav, years = self.split_terms(arg)
         if aav is None or years is None:
             raise ValueError("Usage: propose <player> <aav> <years> [ntc], e.g. propose Suzuki 7.5m 6")

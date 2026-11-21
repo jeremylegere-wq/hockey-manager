@@ -202,7 +202,11 @@ for a 75th-percentile player, 190 at the 90th, 550 at the top), fitted to the de
 ### Clauses (adopted; generated, since the export has none)
 NMC, full NTC and modified lists (8-16 clubs), on about one NHL contract in five: only for players 26+ when the deal
 started, two years or more, more likely and stronger with the cap hit. A modified list names the clubs he rates
-worst (competitive state, with noise), refreshed each season. A full clause is waived only if (S_to - S_from) +
+worst (competitive state, with noise), refreshed each season. About three modified clauses in ten are written the
+other way round (v0.62, issue #11): an **approved list** of 8 to 12 clubs he would accept (the ones he rates best),
+and a trade to any other club needs him to waive, on the same terms as a full clause. Talks offer it as "an 8-club
+approved trade list", priced between a 10-team no-trade list and a full clause; the editor writes it `MNTC_A:<n>`.
+The trade screen's clause tag and the player's contract panel name the clubs on either kind of list. A full clause is waived only if (S_to - S_from) +
 (role_to - role_from) >= 0.5 (loyal players need 0.2 more, a 33+ veteran going to a contender 0.15 less, a player who
 asked out nothing). An NMC also keeps your player out of the minors unless he agrees. `hs/game/clauses.py`.
 

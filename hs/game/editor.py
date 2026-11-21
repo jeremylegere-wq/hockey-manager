@@ -11,7 +11,7 @@ Player edits (`edit_player`)
            ability, position and role ratings); the engine attributes are re-derived from them (ratings.set_ratings)
   potential: the development ceiling on the 1-20 scale (player_dev.potential)
   personality: professionalism, ambition, loyalty, leadership, resilience, patience, ego, role_tolerance (1-20)
-  contract: cap_hit, end (the last season's start year), clause (none, NTC, NMC, MNTC:<n>)
+  contract: cap_hit, end (the last season's start year), clause (none, NTC, NMC, MNTC:<n>, MNTC_A:<n>)
   team: a club's abbreviation (or FA for free agency); he joins its NHL roster, or its minors with status=prospect
 Club edits (`edit_club`): name, nickname, abbr, conference, division.
 
@@ -166,10 +166,13 @@ def clean(conn, field, value):
             return None
         if s in ("NTC", "NMC"):
             return (s, 0)
+        if s.startswith("MNTC_A") or s.startswith("MNTC-A"):           # v0.62: the approved-list form
+            n = s[6:].strip(": ") or "8"
+            return ("MNTC_A", _int(n, 1, 31, "list size"))
         if s.startswith("MNTC"):
             n = s[4:].strip(": ") or "10"
             return ("MNTC", _int(n, 1, 31, "list size"))
-        raise ValueError("clause must be none, NTC, NMC or MNTC:<clubs>.")
+        raise ValueError("clause must be none, NTC, NMC, MNTC:<clubs> or MNTC_A:<clubs>.")
     if field in CAREER:
         return _int(value, 0, 3000, field)
     if field == "team":
@@ -321,7 +324,7 @@ def player_form(conn, pid):
     return dict(player_id=pid, bio={k: p[k] for k in BIO}, team=p["abbr"] or "FA", status=p["status"], ratings=rat,
                 groups=groups, personality=tr, potential=pot[0] if pot else None,
                 contract=dict(cap_hit=c["cap_hit"], contract_end=c["start_year"] + c["years"] - 1) if c else None,
-                clause=(cl["kind"] + (f":{cl['list_size']}" if cl["kind"] == "MNTC" else "")) if cl else "none",
+                clause=(cl["kind"] + (f":{cl['list_size']}" if cl["kind"] in ("MNTC", "MNTC_A") else "")) if cl else "none",
                 career=(lambda pr: {f"career_{k}": pr[k] for k in CR.FIELDS} if pr else {f: 0 for f in CAREER})(CR.prior(conn, pid)),
                 commissioner=enabled(conn))
 
@@ -361,7 +364,7 @@ def export_players(conn, scope="mine"):
         if c:
             row.update(cap_hit=c["cap_hit"], contract_end=c["start_year"] + c["years"] - 1)
             cl = CL.of(conn, pid)
-            row["clause"] = (cl["kind"] + (f":{cl['list_size']}" if cl["kind"] == "MNTC" else "")) if cl else "none"
+            row["clause"] = (cl["kind"] + (f":{cl['list_size']}" if cl["kind"] in ("MNTC", "MNTC_A") else "")) if cl else "none"
         pr = CR.prior(conn, pid)
         if pr:
             row.update({f"career_{k}": pr[k] for k in CR.FIELDS})
@@ -434,7 +437,7 @@ def import_players(conn, text, apply=False):
                         if nv != cur.get("team_id"):
                             diff[k] = nv
                     elif k == "clause":
-                        if (nv[0] + (f":{nv[1]}" if nv and nv[0] == "MNTC" else "") if nv else "none") != cur.get("clause"):
+                        if (nv[0] + (f":{nv[1]}" if nv and nv[0] in ("MNTC", "MNTC_A") else "") if nv else "none") != cur.get("clause"):
                             diff[k] = nv
                     elif k == "status":
                         if nv != conn.execute("SELECT status FROM players WHERE player_id=?", (pid,)).fetchone()[0]:
@@ -487,7 +490,7 @@ def _current(conn, pid):
     if c:
         cur.update(cap_hit=c["cap_hit"], contract_end=c["start_year"] + c["years"] - 1)
         cl = CL.of(conn, pid)
-        cur["clause"] = (cl["kind"] + (f":{cl['list_size']}" if cl["kind"] == "MNTC" else "")) if cl else "none"
+        cur["clause"] = (cl["kind"] + (f":{cl['list_size']}" if cl["kind"] in ("MNTC", "MNTC_A") else "")) if cl else "none"
     from . import career as CR
     pr = CR.prior(conn, pid)
     if pr:

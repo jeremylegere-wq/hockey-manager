@@ -232,7 +232,16 @@ def _contract_dict(conn, pid, year):
     end = c["start_year"] + c["years"] - 1
     return dict(cap_hit=c["cap_hit"], start=c["start_year"], years=c["years"], ends=end, type=c["contract_type"],
                 no_trade=bool(c["no_trade"]), expiring=end == year,
-                status_at_expiry=K.rights_status(conn, pid, end) if end == year else None)
+                status_at_expiry=K.rights_status(conn, pid, end) if end == year else None,
+                clause=_clause_detail(conn, _clause_of(conn, pid)))
+
+
+def _clause_of(conn, pid):
+    from ..game import clauses as CL
+    try:
+        return CL.of(conn, pid)
+    except Exception:
+        return None
 
 
 def roster(conn, include_system=False):
@@ -636,6 +645,19 @@ def game_view(conn, gid):
 
 # ---------------------------------------------------------------- trades (hs/game/gm_trades.py)
 
+def _clause_detail(conn, cl):
+    """v0.62 (#11): the clause in words, with the clubs on his list."""
+    if not cl:
+        return None
+    lst = cl.get("allowed") or cl.get("blocked")
+    clubs = ", ".join(E.team_abbr(conn, t) for t in lst) if lst else ""
+    if cl["kind"] == "MNTC_A":
+        return f"{cl['label']}: he can be traded only to " + (clubs or "the clubs he names this summer")
+    if cl["kind"] == "MNTC":
+        return f"{cl['label']}: he will not go to " + (clubs or "the clubs he names this summer")
+    return f"{cl['label']}: he must agree to any trade"
+
+
 def _trade_assets(conn, team, m, me):
     from ..game import gm_trades as GT
     from ..game import trades as T
@@ -668,7 +690,8 @@ def _trade_assets(conn, team, m, me):
                             cap=c["cap_hit"] if c else None, ends=(c["start_year"] + c["years"]) if c else None,
                             core=pid in m.core.get(team, set()), block=pid in block,
                             moved=pid in m.recently_moved, friction=round(m.friction(pid, team)) if team != me else None,
-                            clause=(lambda c: c["short"] if c else None)(CL.of(conn, pid))))
+                            clause=(lambda c: c["short"] if c else None)(CL.of(conn, pid)),
+                            clause_detail=_clause_detail(conn, CL.of(conn, pid))))
     players.sort(key=lambda x: (x["status"] == "prospect", -x["value"]))
     return dict(players=players, picks=picks)
 

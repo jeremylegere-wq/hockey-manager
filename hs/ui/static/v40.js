@@ -119,7 +119,7 @@ async function edPlayer(pid) {
       <div class="ed-grid"><label><span>club (abbr, FA)</span>${inp("team", f.team, 70)}</label><label><span>status (active / prospect)</span>${inp("status", f.status, 90)}</label>
       <label><span>potential (1-20)</span>${inp("potential", f.potential, 60)}</label></div>
       <div class="ed-grid"><label><span>cap hit</span>${inp("cap_hit", f.contract ? f.contract.cap_hit : "", 100)}</label><label><span>contract ends (season)</span>${inp("contract_end", f.contract ? f.contract.contract_end : "", 70)}</label>
-      <label><span>clause (none, NTC, NMC, MNTC:10)</span>${inp("clause", f.clause, 90)}</label></div>
+      <label><span>clause (none, NTC, NMC, MNTC:10, MNTC_A:8)</span>${inp("clause", f.clause, 90)}</label></div>
       <p><button class="primary" id="ed-save">Save changes</button> <a class="btn" href="#player/${f.player_id}">His page</a></p>
       <p class="muted small">Ratings 1-20, abilities 1-200; the match engine's attributes are re-derived from the ratings when you save.</p>`)}
     ${panel("Personality", grid(f.personality, Object.keys(f.personality), 52))}${f.career ? panel("NHL career before this save", grid(f.career, Object.keys(f.career), 60) + '<p class="muted small">Games, goals, assists, wins, shutouts, playoff games and seasons from before the first season on file; added to his career everywhere (waivers, milestones, Hall of Fame, all-time leaders).</p>') : ""}${ratings}</div>`;

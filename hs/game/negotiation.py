@@ -48,9 +48,9 @@ STYLES = {"shark": dict(open=0.28, give=0.25, patience=3, label="hard-nosed"),
           "pro": dict(open=0.16, give=0.40, patience=4, label="businesslike"),
           "friendly": dict(open=0.08, give=0.55, patience=5, label="easy to deal with")}
 TERM_COST, NTC_GIVE, NTC_REFUSE = 0.035, 0.04, 0.02
-CLAUSE_LEVEL = {"none": 0.0, "mntc_late": 0.5, "mntc": 1.0, "ntc": 2.0, "nmc": 3.0}
+CLAUSE_LEVEL = {"none": 0.0, "mntc_late": 0.5, "mntc": 1.0, "mntc_ok": 1.5, "ntc": 2.0, "nmc": 3.0}
 CLAUSE_TEXT = {"none": "no trade protection", "mntc_late": "a 10-team no-trade list in the last two years",
-               "mntc": "a 10-team no-trade list", "ntc": "a full no-trade clause", "nmc": "a no-movement clause"}
+               "mntc": "a 10-team no-trade list", "mntc_ok": "an 8-club approved trade list", "ntc": "a full no-trade clause", "nmc": "a no-movement clause"}
 CLAUSE_GIVE, CLAUSE_EXTRA, CLAUSE_REFUSE = 0.025, 0.01, 0.02
 MAX_STEP = {"shark": 0.025, "pro": 0.035, "friendly": 0.05}
 PITCHES = ("hometown", "friends", "winning")
@@ -501,6 +501,7 @@ def _sign(conn, pid, kind, aav, years, ntc, day, structure="flat"):
         c = K.last_contract(conn, pid)
         end = c["start_year"] + c["years"] - 1
         kind_, size, start = {"mntc": ("MNTC", 10, c["start_year"]), "mntc_late": ("MNTC", 10, max(c["start_year"], end - 1)),
+                              "mntc_ok": ("MNTC_A", 8, c["start_year"]),
                               "ntc": ("NTC", 0, c["start_year"]), "nmc": ("NMC", 0, c["start_year"])}[clause]
         CL.set_clause(conn, pid, c["contract_id"], kind_, size, start, end)
     conn.commit()

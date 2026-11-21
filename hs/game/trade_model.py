@@ -184,7 +184,7 @@ def friction(m, pid, team=None, offseason=False):
             f *= F_RENTAL
     cl = CL.of(conn, pid)
     if cl:
-        f += {"NMC": F_NMC, "NTC": F_NTC, "MNTC": F_MNTC}[cl["kind"]]
+        f += {"NMC": F_NMC, "NTC": F_NTC, "MNTC": F_MNTC, "MNTC_A": (F_MNTC + F_NTC) / 2}[cl["kind"]]
     role = m.leaders.get(pid)
     f += F_C if role == "C" else F_A if role == "A" else 0.0
     f *= F_POSTURE.get(m.posture.get(team, "middle"), 1.0)
