@@ -28,6 +28,8 @@ changes a result; actions are CLI commands like everywhere else.
 | Season Pages (`#season/<year>`) | League menu | A finished season: champion, final standings with playoff results, awards, scoring and goaltending leaders |
 | Rules (`#rules`) | League menu | Season format this year and next, roster limits, the cap and contract rules |
 | Team Info (`#teaminfo/<club>`) | Team menu | League, conference, division, affiliates, payroll; owner, GM, staff, captain and alternates; room, fans, media, controversy, job security |
+| Staff index (`#staffindex`) | League menu | v0.62: every coach, scout, trainer and analyst in the league, employed or available, filtered by role and club, with each hiring and firing since the save began |
+| Alumni (`#alumni/<club>`) | Team menu, the team page | v0.62: everyone who has played for a club (this save and the world's history, the season being played included): games, scoring or a goalie's record, playoffs, the seasons with the club, and where he is now |
 | Notes (`#notes`) | Manager menu | Your notebook (about a player, a club or nothing) and the short list |
 
 ## Everywhere

@@ -137,5 +137,54 @@ class TransferSummaryTests(Base):
         self.assertLessEqual(start, end)
 
 
+class StaffIndexTests(Base):
+    def test_every_staff_member_with_moves(self):
+        from hs.game import staff as S
+        from hs.ui import screens as SC
+        S.ensure_tables(self.c)
+        if not self.c.execute("SELECT COUNT(*) FROM staff").fetchone()[0]:
+            S.setup(self.c)
+        d = SC.staff_index(self.c)
+        self.assertEqual(len(d["rows"]), self.c.execute("SELECT COUNT(*) FROM staff").fetchone()[0])
+        self.assertEqual(d["rows"][0]["role"], "HC")                          # head coaches first
+        free = self.c.execute("SELECT staff_id, role FROM staff WHERE team_id IS NULL LIMIT 1").fetchone()
+        if free is None:
+            S.refill_market(self.c)
+            free = self.c.execute("SELECT staff_id, role FROM staff WHERE team_id IS NULL LIMIT 1").fetchone()
+        t = self.c.execute("SELECT team_id FROM teams WHERE league_id=1 AND team_id<>? LIMIT 1", (self.me,)).fetchone()[0]
+        old = S.members(self.c, t, free["role"])[0]
+        S.dismiss(self.c, t, old["staff_id"], self.day)
+        S.hire(self.c, t, free["staff_id"], self.day)
+        rows = {r["staff_id"]: r for r in SC.staff_index(self.c, free["role"])["rows"]}
+        self.assertEqual([m["what"] for m in rows[free["staff_id"]]["moves"]], ["hired"])
+        self.assertEqual([m["what"] for m in rows[old["staff_id"]]["moves"]], ["let go"] if free["role"] != "HC" else ["fired"])
+        self.assertTrue(all(r["role"] == free["role"] for r in rows.values()))
+        avail = SC.staff_index(self.c, team=0)["rows"]
+        self.assertTrue(avail and all(r["team_id"] is None for r in avail))
+
+
+class AlumniTests(Base):
+    def test_players_who_played_for_the_club(self):
+        from hs.game.dayloop import sim_until
+        from hs.sim.engine import Skill
+        from hs.ui import screens as SC
+        from test_sim import ENV
+        sim_until(self.c, ENV, Skill(), self.me, through_user_game=True)
+        d = SC.alumni(self.c, self.me)
+        self.assertTrue(d["rows"])
+        self.assertTrue(all(r["gp"] + r["po_gp"] >= 1 for r in d["rows"]))
+        gp = [r["gp"] for r in d["rows"]]
+        self.assertEqual(gp, sorted(gp, reverse=True))
+        # a player traded away stays an alumnus, now elsewhere
+        pid = d["rows"][0]["player_id"]
+        other = self.c.execute("SELECT team_id FROM teams WHERE league_id=1 AND team_id<>? LIMIT 1", (self.me,)).fetchone()[0]
+        self.c.execute("UPDATE players SET team_id=? WHERE player_id=?", (other, pid))
+        row = next(r for r in SC.alumni(self.c, self.me)["rows"] if r["player_id"] == pid)
+        self.assertFalse(row["current"])
+        self.assertGreaterEqual(SC.alumni(self.c, self.me)["former"], 1)
+        with self.assertRaises(ValueError):
+            SC.alumni(self.c, 99999)
+
+
 if __name__ == "__main__":
     unittest.main()

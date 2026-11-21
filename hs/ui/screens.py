@@ -999,3 +999,130 @@ def _eu_leaders(conn, club, n=5):
     return dict(points=[f(r, r["g"] + r["a"]) for r in pts], goals=[f(r, r["g"]) for r in gls],
                 goalies=[f(r, f"{(r['sa'] - r['ga']) / r['sa']:.3f}".lstrip("0")) for r in gks], league=EU.european_leagues(conn)[lid]["abbr"],
                 mine=ab.get(club))
+
+
+# ---------------------------------------------------------------- v0.62 (#16): the staff index and team alumni
+def staff_index(conn, role=None, team=None):
+    """Every coach, scout, trainer and analyst in the league, employed or on the market, with the moves the save
+    has seen (hired, let go, fired) from the league's events. Filters: role (HC, AC, ...), team (team_id, or 0 for
+    the unemployed)."""
+    from ..game import staff as S
+    if not _has(conn, "staff"):
+        return dict(rows=[], roles=[], clubs=[])
+    ab = {r[0]: r[1] for r in conn.execute("SELECT team_id, abbr FROM teams")}
+    moves = {}
+    if _has(conn, "league_events"):
+        for e in conn.execute("SELECT staff_id, event_date, event_type, team_id FROM league_events WHERE staff_id IS NOT NULL AND "
+                              "event_type IN ('STAFF_HIRED','STAFF_DISMISSED','COACH_FIRED') ORDER BY event_date, event_id"):
+            moves.setdefault(e[0], []).append(dict(date=e[1], team=ab.get(e[3], ""), team_id=e[3],
+                                                    what="hired" if e[2] == "STAFF_HIRED" else "fired" if e[2] == "COACH_FIRED" else "let go"))
+    q = "SELECT * FROM staff WHERE 1=1"
+    args = []
+    if role:
+        q += " AND role=?"
+        args.append(role)
+    if team is not None and str(team) != "":
+        if int(team) == 0:
+            q += " AND team_id IS NULL"
+        else:
+            q += " AND team_id=?"
+            args.append(int(team))
+    rows = []
+    order = {k: i for i, (k, _) in enumerate(S.ROLES)}
+    for s in sorted(conn.execute(q, args).fetchall(), key=lambda s: (order.get(s["role"], 99), s["team_id"] is None,
+                                                                    ab.get(s["team_id"], ""), s["name"])):
+        main = S.MAIN_ATTR.get(s["role"], "coaching")
+        mv = moves.get(s["staff_id"], [])
+        rows.append(dict(staff_id=s["staff_id"], name=s["name"], role=s["role"], role_name=S.ROLE_NAMES.get(s["role"], s["role"]),
+                         team_id=s["team_id"], team=ab.get(s["team_id"], "") if s["team_id"] else "", age=s["age"],
+                         main=main, main_value=s[main], reputation=s["reputation"], style=s["style"],
+                         contract_end=None if s["contract_end"] == 9999 else s["contract_end"], is_you=s["contract_end"] == 9999,
+                         clubs=len({m["team_id"] for m in mv if m["what"] == "hired"}), moves=mv,
+                         history="; ".join(f"{m['what']} {m['team']} {m['date']}".strip() for m in mv)))
+    clubs = [dict(team_id=r[0], abbr=r[1]) for r in conn.execute(f"SELECT team_id, abbr FROM teams WHERE {top_league_sql()} ORDER BY abbr")]
+    return dict(rows=rows, roles=[dict(key=k, label=S.ROLE_NAMES[k]) for k, _ in S.ROLES], clubs=clubs, role=role, team=team)
+
+
+def alumni(conn, team, min_gp=1):
+    """Everyone who has played for a club in this save or in the history it was built with: games, scoring (or a
+    goalie's record), seasons with the club, and where he is now. Regular season and playoffs are counted
+    separately."""
+    t = int(team)
+    tr = conn.execute("SELECT team_id, abbr, name, nickname FROM teams WHERE team_id=?", (t,)).fetchone()
+    if tr is None:
+        raise ValueError("No such club.")
+    full = f"{tr['name']} {tr['nickname'] or ''}".strip()
+    names = {tr["name"], full}
+    ab = {r[0]: r[1] for r in conn.execute("SELECT team_id, abbr FROM teams")}
+    where = "(s.team_id=? OR (s.team_id IS NULL AND s.club_name IN (?,?)))"
+    args = (t, tr["name"], full)
+    out = {}
+    for r in conn.execute(f"SELECT s.player_id, s.season_start_year y, s.split, s.gp, s.g, s.a, s.pim FROM skater_season_stats s "
+                          f"WHERE {where}", args):
+        d = out.setdefault(r["player_id"], dict(player_id=r["player_id"], goalie=False, seasons=set(), gp=0, g=0, a=0, pim=0, po_gp=0, po_pts=0))
+        d["seasons"].add(r["y"])
+        if r["split"] == "PO":
+            d["po_gp"] += r["gp"] or 0
+            d["po_pts"] += (r["g"] or 0) + (r["a"] or 0)
+        else:
+            d["gp"] += r["gp"] or 0
+            d["g"] += r["g"] or 0
+            d["a"] += r["a"] or 0
+            d["pim"] += r["pim"] or 0
+    for r in conn.execute(f"SELECT s.player_id, s.season_start_year y, s.split, s.gp, s.w, s.so, s.ga, s.sa FROM goalie_season_stats s "
+                          f"WHERE {where}", args):
+        d = out.setdefault(r["player_id"], dict(player_id=r["player_id"], goalie=True, seasons=set(), gp=0, g=0, a=0, pim=0, po_gp=0, po_pts=0))
+        d["goalie"] = True
+        d["seasons"].add(r["y"])
+        for k in ("w", "so", "ga", "sa"):
+            d.setdefault(k, 0)
+        if r["split"] == "PO":
+            d["po_gp"] += r["gp"] or 0
+        else:
+            d["gp"] += r["gp"] or 0
+            d["w"] += r["w"] or 0
+            d["so"] += r["so"] or 0
+            d["ga"] += r["ga"] or 0
+            d["sa"] += r["sa"] or 0
+    # the season being played is in the game logs until it is folded into the season tables at its end
+    lg = conn.execute("SELECT league_id FROM teams WHERE team_id=?", (t,)).fetchone()[0]
+    cur = conn.execute("SELECT season_id, start_year FROM seasons WHERE league_id=? ORDER BY start_year DESC LIMIT 1", (lg,)).fetchone()
+    if cur and not conn.execute("SELECT 1 FROM skater_season_stats WHERE season_start_year=? AND team_id=? AND split='RS' LIMIT 1",
+                                (cur[1], t)).fetchone():
+        for r in conn.execute("SELECT s.player_id, g.game_type, p.position, COUNT(*) gp, SUM(s.goals) g, SUM(s.assists) a, "
+                              "SUM(s.saves) sv, SUM(s.shots_against) sa FROM player_game_stats s JOIN games g USING (game_id) "
+                              "JOIN players p USING (player_id) WHERE g.season_id=? AND s.team_id=? GROUP BY s.player_id, g.game_type",
+                              (cur[0], t)):
+            gk = r["position"] == "G"
+            d = out.setdefault(r["player_id"], dict(player_id=r["player_id"], goalie=gk, seasons=set(), gp=0, g=0, a=0, pim=0, po_gp=0, po_pts=0))
+            d["seasons"].add(cur[1])
+            po = r["game_type"] == "PO"
+            d["po_gp" if po else "gp"] += r["gp"] or 0
+            if gk:
+                for k in ("w", "so", "ga", "sa"):
+                    d.setdefault(k, 0)
+                if not po:
+                    d["ga"] += (r["sa"] or 0) - (r["sv"] or 0)
+                    d["sa"] += r["sa"] or 0
+            elif po:
+                d["po_pts"] += (r["g"] or 0) + (r["a"] or 0)
+            else:
+                d["g"] += r["g"] or 0
+                d["a"] += r["a"] or 0
+    rows = []
+    for pid, d in out.items():
+        if d["gp"] + d["po_gp"] < min_gp:
+            continue
+        p = conn.execute("SELECT first_name||' '||last_name n, position, team_id, status FROM players WHERE player_id=?", (pid,)).fetchone()
+        if p is None:
+            continue
+        ys = sorted(d["seasons"])
+        now = "retired" if p["status"] == "retired" else ("with the club" if p["team_id"] == t else ab.get(p["team_id"], "unsigned") if p["team_id"] else "unsigned")
+        row = dict(player_id=pid, name=p["n"], pos=p["position"], goalie=d["goalie"], first=ys[0], last=ys[-1], seasons=len(ys),
+                   gp=d["gp"], g=d["g"], a=d["a"], pts=d["g"] + d["a"], pim=d["pim"], po_gp=d["po_gp"], po_pts=d["po_pts"],
+                   now=now, current=p["team_id"] == t)
+        if d["goalie"]:
+            row.update(w=d.get("w", 0), so=d.get("so", 0), sv_pct=round(1 - d["ga"] / d["sa"], 3) if d.get("sa") else None)
+        rows.append(row)
+    rows.sort(key=lambda r: (-r["gp"], r["name"]))
+    return dict(team_id=t, team=tr["abbr"], name=full, rows=rows, former=sum(1 for r in rows if not r["current"]))

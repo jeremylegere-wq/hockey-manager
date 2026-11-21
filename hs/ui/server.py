@@ -129,6 +129,8 @@ VIEWS = {
     "playtargets": lambda c, q: SC.play_targets(c),
     "leagueday": lambda c, q: SC.league_day(c, q.get("day")),
     "transactions": lambda c, q: SC.transactions_hub(c, q.get("tab", "free"), q.get("team") or None),
+    "staffindex": lambda c, q: SC.staff_index(c, q.get("role") or None, q.get("team")),          # v0.62 (#16)
+    "alumni": lambda c, q: SC.alumni(c, q.get("team") or __import__("hs.game.state", fromlist=["x"]).user_team(c), int(q.get("min_gp") or 1)),
     "depth": lambda c, q: SC.depth_chart(c, q.get("team")),
     "txnlog": lambda c, q: SC.txn_log(c, q.get("season"), q.get("team"), q.get("kind", "")),
     "milestones": lambda c, q: SC.milestones(c),
@@ -171,7 +173,7 @@ VIEWS = {
         fee_max=int(q["fee"]) if q.get("fee") else None, free_only=q.get("free") == "1", limit=int(q.get("limit") or 150)),
 }
 NO_GAME_OK = {"state"}
-UNEMPLOYED_OK = {"focusleagues", "calendar", "schedule", "analytics", "history", "intl", "discipline", "college", "worldleagues", "hof", "legacy", "expansion", "retirednumbers", "state", "jobs", "manager", "gm", "news", "newsfeed", "standings", "standings2", "stats", "player", "playerx", "card", "team",
+UNEMPLOYED_OK = {"staffindex", "alumni", "focusleagues", "calendar", "schedule", "analytics", "history", "intl", "discipline", "college", "worldleagues", "hof", "legacy", "expansion", "retirednumbers", "state", "jobs", "manager", "gm", "news", "newsfeed", "standings", "standings2", "stats", "player", "playerx", "card", "team",
                  "teams", "leagueday", "season", "reports", "milestones", "draftlog", "rules", "search", "article", "game", "track", "track2", "leagueplay",
                  "inbox", "inbox2", "strip", "playoffs", "leaguehistory", "worldleagues", "expansion", "college", "challenge", "commish", "retirednumbers", "intl", "lineups", "discipline", "find", "teaminfo", "txnlog", "transactions", "playermarks", "notes", "calendar", "people", "devchart",
                  "exhibitions", "exbox", "allstar", "hof", "legacy", "gmleaders", "achievements", "simleaders", "euclub", "eumarket",
