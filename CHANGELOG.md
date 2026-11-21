@@ -6,6 +6,24 @@ The version is `VERSION` in `hs/ui/settings.py`; a release is the tag `v` + that
 
 ## [Unreleased]
 
+### Added
+- Approved-list no-trade clauses: a modified clause can name the 8-12 clubs a player would accept instead of the ones
+  he refuses; the trade AI and your trades respect it, talks offer it, and the trade screen and contract panel name
+  the clubs on either kind of list (issue #11).
+- Transactions > Transfer summary: every club's arrivals and departures since the season ended, with the cap that came
+  and went; linked from the Free Agent Centre (issue #9).
+- League > Staff Index and Team > Alumni (also on every team page) (issue #16).
+- Coaching points by category from your staff set how much a training focus helps; the goaltending coach has two to
+  four one-on-one slots for young goalies (Development screen, `goalieslot`) (issue #14).
+- Each club's media: a coverage level from its market, a fixed lean, and focus players the questions go to first
+  (Press Room) (issue #12).
+
+### Changed
+- A press conference's starting pressure and the chance of one after a quiet game now follow the club's coverage level
+  (40 and 1 in 6 at the middle level, as before).
+- `docs/DEFECTS.md`: rows that still said "Planned" for work shipped in v34-v48 say what shipped; the GitHub issues
+  table lists 0.61.1 and v0.62.
+
 ## [0.61.1] - 2026-11-21
 
 ### Fixed

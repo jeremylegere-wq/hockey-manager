@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "0.61.1"
-BUILD = "61.7"           # each build sent out: Help > About and bug reports say which one is running
+VERSION = "0.62"
+BUILD = "62.1"           # each build sent out: Help > About and bug reports say which one is running
 
 DEFAULTS = {
     "ui_scale": 100,            # percent: the whole interface (resolution scaling)

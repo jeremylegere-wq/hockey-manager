@@ -292,3 +292,12 @@ Each phase ships with its docs page, unit tests and a pass through every screen 
   (and so does each later season); the club is run on the game's own tabs (Lines, Tactics and Lineups for the
   lineup; Office, Roster, Contracts, Transfers, Transactions for the rest) instead of separate Club tabs; a display
   currency with reference rates of November 2026 (docs/CURRENCY.md); and a Russian interface (docs/RUSSIAN.md).
+* **0.61.1: fixes from Jeremy's testing (issues #31-#35).** The draft pick that failed after it was made, draft-day
+  offers the AI refused, the agent call that never connected, inbox buttons, and a guard on leaving the war room.
+* **v0.62: from the backlog (GitHub issues #9, #11, #12, #14, #16).** Approved-list no-trade clauses, the transfer
+  summary, the staff index and team alumni, coaching points by category and goalie training slots, and each club's
+  media (coverage level, a fixed lean, focus players). A status check of the defects register: six rows that read
+  "Planned" were done in v34-v48 and now say so. Still open from the long tail: pick swap rights, unit-level and more
+  player-level tactics (#6), asymmetric chemistry (#7), more staff attributes (#13), player templates (#15), an
+  all-time leaders table in packs (#17), historical starts (#18), league sizes other than 32 (#4), jersey graphics
+  (#21), and the game's own text in French.
