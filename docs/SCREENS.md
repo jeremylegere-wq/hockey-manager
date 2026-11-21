@@ -18,7 +18,7 @@ changes a result; actions are CLI commands like everywhere else.
 | Screen | Where | What |
 |---|---|---|
 | Schedule by Day (`#leagueday/<date>`) | League menu, the strip | Every top-league game on a day: score, OT/SO, star of the game, box score; the day's news; previous / next day with games |
-| Transactions (`#transactions/<tab>`) | Top tab, League menu | One tabbed screen: Offseason, Free agents, Upcoming free agents (contracts ending, best first), Trade block, Waivers, Offer sheets, Injured, Short list, Transaction log |
+| Transactions (`#transactions/<tab>`) | Top tab, League menu | One tabbed screen: Offseason, Free agents, Upcoming free agents (contracts ending, best first), Trade block, Waivers, Offer sheets, Injured, Short list, Transfer summary (v0.62: every club's arrivals and departures since the season ended, with the cap that came and went), Transaction log |
 | Roster tabs | Roster | NHL roster, Whole organisation, Depth chart, Draft rights, Contracts, Injured (yours), Short list |
 | Depth Chart (`#depth[/<club>]`) | Team menu, Roster | The organisation by position (C, LW, RW, D, G): NHL, then the minors, then unsigned rights, best first; value, potential, contract; future picks |
 | Transaction Log (`#txnlog`) | League menu | By season, the league or your club, by kind; minor-league and European moves on request |

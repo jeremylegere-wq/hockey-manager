@@ -173,7 +173,7 @@ def league_day(conn, day=None):
 
 
 # ---------------------------------------------------------------- transactions hub
-HUB_TABS = ("free", "upcoming", "block", "waivers", "sheets", "injured", "shortlist")
+HUB_TABS = ("free", "upcoming", "block", "waivers", "sheets", "injured", "shortlist", "summary")
 
 
 def transactions_hub(conn, tab="free", team=None):
@@ -184,8 +184,79 @@ def transactions_hub(conn, tab="free", team=None):
         ab = conn.execute("SELECT abbr FROM teams WHERE team_id=?", (t,)).fetchone()
         ab = ab[0] if ab else None
         out_["rows"] = [r for r in out_["rows"] if r.get("team_id") == t or r.get("team") == ab or r.get("holding") == ab or r.get("offering") == ab]
+        if "clubs_summary" in out_:
+            out_["clubs_summary"] = [c for c in out_["clubs_summary"] if c["team_id"] == t]
         out_["team"] = t
     return out_
+
+
+def summary_window(conn):
+    """The transfer window the summary covers: from the day after the top league's last regular season ended (the
+    summer so far), or from the start of the current season if none has ended yet."""
+    on = get_state(conn)[0]
+    lg = f"league_id IN (SELECT league_id FROM leagues WHERE COALESCE(level, 1) = (SELECT MIN(COALESCE(level, 1)) FROM leagues))"
+    r = conn.execute(f"SELECT end_date FROM seasons WHERE {lg} AND end_date IS NOT NULL AND end_date<? ORDER BY end_date DESC LIMIT 1",
+                     (on,)).fetchone()
+    if r:
+        return (datetime.date.fromisoformat(r[0]) + datetime.timedelta(days=1)).isoformat(), on
+    r = conn.execute(f"SELECT MIN(start_date) FROM seasons WHERE {lg}").fetchone()
+    return min(r[0] if r and r[0] else on, on), on
+
+
+def transfer_summary(conn, since=None):
+    """v0.62 (#9): the transfer summary. Every top-league club's moves in the window: arrivals (signings, trades in)
+    and departures (free agents leaving, buyouts, trades out, retirements), with the cap hits that came and went.
+    Returns (rows, clubs): one row per club and move, and one line per club."""
+    start, end = (since, get_state(conn)[0]) if since else summary_window(conn)
+    top = {r[0]: r[1] for r in conn.execute(f"SELECT team_id, abbr FROM teams WHERE {top_league_sql()}")}
+    year = K.signing_year(conn)
+    name = lambda pid: conn.execute("SELECT first_name||' '||last_name, position FROM players WHERE player_id=?", (pid,)).fetchone()
+
+    def cap_with(pid, team, latest=True):
+        c = K.current_contract(conn, pid, year)
+        if latest and c is not None and c["team_id"] == team:
+            return c["cap_hit"]
+        r = conn.execute("SELECT cap_hit FROM contracts WHERE player_id=? AND team_id=? ORDER BY start_year DESC LIMIT 1",
+                         (pid, team)).fetchone()
+        return r[0] if r else None
+
+    rows = []
+    for t in conn.execute("SELECT txn_date, txn_type, player_id, from_team_id, to_team_id, detail FROM transactions "
+                          "WHERE txn_date>=? AND txn_date<=? AND txn_type IN ('sign','release','trade','retire') "
+                          "ORDER BY txn_date, txn_id", (start, end)).fetchall():
+        d, typ, pid, frm, to, det = t
+        nm = name(pid)
+        if nm is None:
+            continue
+        how = {"sign": "signed", "release": "bought out" if (det or "").startswith("bought out") else
+               "left as a free agent" if "free agent" in (det or "") else "released", "trade": "trade",
+               "retire": "retired"}[typ]
+        if typ == "trade":
+            if to in top:
+                rows.append(dict(team_id=to, team=top[to], dir="in", player_id=pid, name=nm[0], pos=nm[1], date=d, how="trade",
+                                 other=top.get(frm) or "", cap=cap_with(pid, to)))
+            if frm in top:
+                rows.append(dict(team_id=frm, team=top[frm], dir="out", player_id=pid, name=nm[0], pos=nm[1], date=d, how="trade",
+                                 other=top.get(to) or "", cap=cap_with(pid, frm, latest=False)))
+        elif typ == "sign" and to in top:
+            rows.append(dict(team_id=to, team=top[to], dir="in", player_id=pid, name=nm[0], pos=nm[1], date=d, how=how,
+                             other="", cap=cap_with(pid, to)))
+        elif typ in ("release", "retire") and frm in top:
+            rows.append(dict(team_id=frm, team=top[frm], dir="out", player_id=pid, name=nm[0], pos=nm[1], date=d, how=how,
+                             other="", cap=cap_with(pid, frm, latest=False)))
+    clubs = {}
+    for t, ab in top.items():
+        clubs[t] = dict(team_id=t, team=ab, ins=0, outs=0, cap_in=0, cap_out=0)
+    for r in rows:
+        c = clubs[r["team_id"]]
+        k = "ins" if r["dir"] == "in" else "outs"
+        c[k] += 1
+        if r["how"] not in ("retired",):
+            c["cap_in" if r["dir"] == "in" else "cap_out"] += r["cap"] or 0
+    for c in clubs.values():
+        c["net_cap"] = c["cap_in"] - c["cap_out"]
+    clubs = sorted(clubs.values(), key=lambda c: (-(c["ins"] + c["outs"]), c["team"]))
+    return rows, clubs, start, end
 
 
 def _transactions_hub(conn, tab="free"):
@@ -195,6 +266,10 @@ def _transactions_hub(conn, tab="free"):
     year = K.signing_year(conn)
     out = dict(tab=tab, tabs=list(HUB_TABS), rows=[])
     rows = out["rows"]
+    if tab == "summary":
+        mv, clubs, start, end = transfer_summary(conn)
+        out.update(rows=mv, clubs_summary=clubs, since=start, until=end)
+        return out
     if tab == "free":
         for v, pid, pos in R.free_agents(conn)[:150]:
             p = conn.execute("SELECT * FROM players WHERE player_id=?", (pid,)).fetchone()

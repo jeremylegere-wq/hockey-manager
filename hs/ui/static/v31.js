@@ -72,7 +72,7 @@ VIEWS.leagueday = async (day) => {
 
 /* ================================================================ transactions hub */
 const HUB = [["offseason", "Offseason"], ["free", "Free agents"], ["upcoming", "Upcoming free agents"], ["block", "Trade block"], ["waivers", "Waivers"],
-  ["sheets", "Offer sheets"], ["injured", "Injured"], ["shortlist", "Short list"], ["log", "Transaction log"]];
+  ["sheets", "Offer sheets"], ["injured", "Injured"], ["shortlist", "Short list"], ["summary", "Transfer summary"], ["log", "Transaction log"]];
 const TH = {team: ""};
 VIEWS.transactions = async (tab = "free") => {
   if (tab === "offseason") { location.hash = "#offseason"; return ""; }
@@ -83,8 +83,18 @@ VIEWS.transactions = async (tab = "free") => {
     `<option value="${c.team_id}"${+TH.team === c.team_id ? " selected" : ""}>${esc(c.abbr)}</option>`).join("")}</select></label><span class="spacer"></span><span class="muted">${d.rows.length} rows</span></div>`;
   const prev = AFTER;
   AFTER = async () => { if (prev) await prev(); const s = $("#th-team"); if (s) s.onchange = () => { TH.team = s.value; render(); }; };
-  return bar + pick + hubPanel(d);
+  return bar + pick + (d.tab === "summary" ? transferClubs(d) : "") + hubPanel(d);
 };
+function transferClubs(d) {                                  // v0.62 (#9): each club's window at a glance
+  const sg = (v) => `<span class="${v > 0 ? "neg" : v < 0 ? "pos" : "muted"}">${v > 0 ? "+" : v < 0 ? "-" : ""}${mil(Math.abs(v))}</span>`;
+  const rows = (d.clubs_summary || []).filter((c) => c.ins || c.outs);
+  return panel(`The window so far: ${esc(d.since)} to ${esc(d.until)}`, rows.length ? `<div class="scroll">${table(rows, [
+    {key: "team", label: "Club", fmt: (r) => tm(r.team, r.team_id)}, {key: "ins", label: "In", num: true}, {key: "outs", label: "Out", num: true},
+    {key: "cap_in", label: "Cap in", num: true, fmt: (r) => mil(r.cap_in)}, {key: "cap_out", label: "Cap out", num: true, fmt: (r) => mil(r.cap_out)},
+    {key: "net_cap", label: "Net cap", num: true, fmt: (r) => sg(r.net_cap)}], {rowClass: (r) => STATE && r.team_id === STATE.team_id ? "mine" : ""})}</div>
+    <p class="muted small">Cap in: this season's cap hits of the players who arrived. Cap out: the last cap hit each departing player carried with the club (retirements are counted, not charged).</p>`
+    : empty("No moves yet in this window."));
+}
 function hubPanel(d, title = null) {
   const P = {key: "name", label: "Player", fmt: (r) => clink(r.player_id, r.name)}, POS = {key: "pos", label: "Pos"}, AGE = {key: "age", label: "Age", num: true};
   const VAL = {key: "value", label: "Value", num: true}, TEAM = {key: "team", label: "Club", fmt: (r) => tm(r.team, r.team_id)};
@@ -102,11 +112,15 @@ function hubPanel(d, title = null) {
     shortlist: [P, POS, AGE, {key: "team", label: "Club", fmt: (r) => r.team_id ? tm(r.team, r.team_id) : esc(r.team)}, VAL,
       {key: "cap_hit", label: "Cap hit", num: true, fmt: (r) => mil(r.cap_hit)}, {key: "ends", label: "Final season", fmt: (r) => ssn(r.ends)},
       {key: "added", label: "Added"}, {key: "reason", label: "Why"}, {key: "x", label: "", fmt: (r) => `<button class="mini" data-cmd="shortlist del ${r.player_id}">Remove</button>`}],
+    summary: [{key: "date", label: "Date"}, TEAM, {key: "dir", label: "", fmt: (r) => r.dir === "in" ? '<span class="tag pos">in</span>' : '<span class="tag neg">out</span>'},
+      P, POS, {key: "how", label: "How", fmt: (r) => esc(r.how) + (r.other ? ` ${r.dir === "in" ? "from" : "to"} ${esc(r.other)}` : "")},
+      {key: "cap", label: "Cap hit", num: true, fmt: (r) => r.cap ? mil(r.cap) : "-"}],
   }[d.tab];
   const titles = {free: "Free agents", upcoming: "Contracts ending this season", block: "Players on the trade block", waivers: "Waiver wire and recent waivers",
-    sheets: "Offer sheets", injured: "Injured around the league", shortlist: "Your short list"};
+    sheets: "Offer sheets", injured: "Injured around the league", shortlist: "Your short list", summary: "Every move in the window"};
   const none = {free: "Nobody is unsigned right now. The market fills on 1 July.", upcoming: "No contracts end this season.", block: "Nobody is on the block.",
-    waivers: "Nobody has been on waivers this season.", sheets: "No offer sheets yet.", injured: "Nobody is hurt.", shortlist: "Your short list is empty: right-click a player (or use Add to short list on his profile)."}[d.tab];
+    waivers: "Nobody has been on waivers this season.", sheets: "No offer sheets yet.", injured: "Nobody is hurt.", shortlist: "Your short list is empty: right-click a player (or use Add to short list on his profile).",
+    summary: "No signings, departures or trades yet in this window."}[d.tab];
   return panel(`${title || titles[d.tab]} (${d.rows.length})`, d.rows.length ? `<div class="scroll tall">${table(d.rows, cols, {rowClass: (r) => STATE && r.team_id === STATE.team_id ? "mine" : ""})}</div>` : empty(none));
 }
 

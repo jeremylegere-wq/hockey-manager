@@ -111,5 +111,31 @@ class ApprovedListSourcesTests(Base):
         self.assertIn("traded only to", d["clause"])
 
 
+class TransferSummaryTests(Base):
+    def test_moves_and_club_lines(self):
+        from hs.ui import screens as SC
+        other = self.c.execute("SELECT team_id FROM teams WHERE league_id=1 AND team_id<>? LIMIT 1", (self.me,)).fetchone()[0]
+        a, b = self.a_player(), self.a_player(other)
+        day = self.day
+        self.c.executemany("INSERT INTO transactions (txn_date, txn_type, player_id, from_team_id, to_team_id, detail) VALUES (?,?,?,?,?,?)",
+                           [(day, "trade", a, self.me, other, "traded"), (day, "release", b, other, None, "became a free agent (UFA)"),
+                            (day, "draft", b, None, other, "drafted")])                  # a draft pick is not a transfer
+        rows, clubs, start, end = SC.transfer_summary(self.c, since=day)
+        mine = [r for r in rows if r["team_id"] == self.me]
+        theirs = [r for r in rows if r["team_id"] == other]
+        self.assertEqual([(r["dir"], r["how"], r["other"]) for r in mine], [("out", "trade", mine[0]["other"])])
+        self.assertEqual(sorted((r["dir"], r["how"]) for r in theirs), [("in", "trade"), ("out", "left as a free agent")])
+        line = next(c for c in clubs if c["team_id"] == other)
+        self.assertEqual((line["ins"], line["outs"]), (1, 1))
+        self.assertEqual(line["net_cap"], line["cap_in"] - line["cap_out"])
+        hub = SC.transactions_hub(self.c, "summary", team=other)
+        self.assertEqual([c["team_id"] for c in hub["clubs_summary"]], [other])
+
+    def test_window_starts_after_the_season(self):
+        from hs.ui import screens as SC
+        start, end = SC.summary_window(self.c)
+        self.assertLessEqual(start, end)
+
+
 if __name__ == "__main__":
     unittest.main()
